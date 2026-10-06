@@ -204,19 +204,36 @@ public final class MixinSelfCheck {
 
     private static int checkMethod(String label, Class<?> owner, String name, Class<?>... params) {
         try {
-            Method method = owner.getMethod(name, params);
-            if (method == null) {
+            if (resolveMethod(owner, name, params) == null) {
                 WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {}", label);
                 return 1;
             }
             return 0;
-        } catch (NoSuchMethodException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {} ({})", label, e.toString());
-            return 1;
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
             return 1;
         }
+    }
+
+    /**
+     * 与 Mixin 同口径查找：public（含继承与接口 default 方法）与 protected / 包私有声明都可被注入。
+     * 只认 {@code Class.getMethod} 会漏 protected（如 LivingEntity.actuallyHurt）；
+     * 只认 {@code getDeclaredMethod} 会漏接口注入（如 ItemStack.supportsEnchantment）——两款都会误关特性。
+     */
+    private static Method resolveMethod(Class<?> owner, String name, Class<?>... params) {
+        try {
+            return owner.getMethod(name, params);
+        } catch (NoSuchMethodException ignored) {
+            // 非 public：继续沿类层次查找声明
+        }
+        for (Class<?> cursor = owner; cursor != null && cursor != Object.class; cursor = cursor.getSuperclass()) {
+            try {
+                return cursor.getDeclaredMethod(name, params);
+            } catch (NoSuchMethodException ignored) {
+                // 沿父类继续查找
+            }
+        }
+        return null;
     }
 
     private static int checkStaticFullname() {
