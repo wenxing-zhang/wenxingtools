@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.HashMap;
 import java.util.Map;
 
-@Mixin(value = AnvilMenu.class, priority = 500)
+@Mixin(value = AnvilMenu.class, priority = 1500)
 public abstract class AnvilMenuFinalizerMixin {
     @Shadow @Final private DataSlot cost;
 

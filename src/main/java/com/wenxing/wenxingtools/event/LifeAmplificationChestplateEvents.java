@@ -34,6 +34,10 @@ public final class LifeAmplificationChestplateEvents {
         if (!(chest.getItem() instanceof LifeAmplificationChestplateItem)) {
             return;
         }
-        event.setAmount(event.getAmount() * EXTRA_DAMAGE_FACTOR);
+        float amount = event.getAmount();
+        if (Float.isNaN(amount) || Float.isInfinite(amount)) {
+            return;
+        }
+        event.setAmount(amount * EXTRA_DAMAGE_FACTOR);
     }
 }

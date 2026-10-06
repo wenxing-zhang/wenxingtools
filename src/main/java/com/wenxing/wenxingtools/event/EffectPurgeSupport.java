@@ -11,6 +11,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public final class EffectPurgeSupport {
@@ -59,10 +60,21 @@ public final class EffectPurgeSupport {
     }
 
     private static void clearPurgeableEffects(LivingEntity target) {
-        for (Object obj : new ArrayList<>(target.getActiveEffects())) {
-            if (!(obj instanceof net.minecraft.world.effect.MobEffectInstance instance)) {
-                continue;
+        Collection<net.minecraft.world.effect.MobEffectInstance> active = target.getActiveEffects();
+        if (active.isEmpty()) {
+            return;
+        }
+        boolean hasPurgeable = false;
+        for (net.minecraft.world.effect.MobEffectInstance instance : active) {
+            if (!isProtectedFromPurge(instance)) {
+                hasPurgeable = true;
+                break;
             }
+        }
+        if (!hasPurgeable) {
+            return;
+        }
+        for (net.minecraft.world.effect.MobEffectInstance instance : new ArrayList<>(active)) {
             if (isProtectedFromPurge(instance)) {
                 continue;
             }

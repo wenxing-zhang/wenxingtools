@@ -38,7 +38,9 @@ public final class EchoAmplificationEvents {
         if (event.getAmount() <= 0.0f) {
             return;
         }
-        if (CombatUtil.isKillChainRunning() || ECHO_CHAIN_RUNNING.get()) {
+        if (CombatUtil.isKillChainRunning()
+                || ECHO_CHAIN_RUNNING.get()
+                || AttackAmplificationEvents.isAttackAmpRunning()) {
             return;
         }
 

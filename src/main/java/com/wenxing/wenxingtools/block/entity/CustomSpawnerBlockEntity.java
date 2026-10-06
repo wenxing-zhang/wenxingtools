@@ -100,7 +100,7 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
             }
         }
         if (tag.contains("Cooldown")) {
-            this.cooldown = tag.getInt("Cooldown");
+            this.cooldown = Math.max(0, tag.getInt("Cooldown"));
         }
     }
 
