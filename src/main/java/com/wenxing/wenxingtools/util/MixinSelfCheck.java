@@ -32,6 +32,8 @@ public final class MixinSelfCheck {
     private static volatile boolean weaponCoverageExpandEnabled = true;
     /** MultiStack 防邻居合并（ItemEntityMergeGuardMixin） */
     private static volatile boolean multiStackMergeGuardEnabled = true;
+    /** 护甲减伤上限扩展（CombatRulesMixin） */
+    private static volatile boolean uncappedArmorEnabled = true;
     private static volatile boolean anyFailure = false;
 
     public static boolean isFixedMiningEnabled() {
@@ -64,6 +66,10 @@ public final class MixinSelfCheck {
 
     public static boolean isMultiStackMergeGuardEnabled() {
         return multiStackMergeGuardEnabled;
+    }
+
+    public static boolean isUncappedArmorEnabled() {
+        return uncappedArmorEnabled;
     }
 
     public static boolean hasFailures() {
@@ -147,6 +153,15 @@ public final class MixinSelfCheck {
             multiStackMergeGuardEnabled = false;
             missing++;
         }
+        // 1.21.1 护甲减伤入口：CombatRules.getDamageAfterAbsorb(LivingEntity, float, DamageSource, float, float)
+        if (checkMethod("CombatRules.getDamageAfterAbsorb",
+                net.minecraft.world.damagesource.CombatRules.class,
+                "getDamageAfterAbsorb",
+                LivingEntity.class, float.class,
+                net.minecraft.world.damagesource.DamageSource.class, float.class, float.class) != 0) {
+            uncappedArmorEnabled = false;
+            missing++;
+        }
 
         anyFailure = missing > 0;
         if (missing == 0) {
@@ -154,9 +169,10 @@ public final class MixinSelfCheck {
         } else {
             WenXingTools.LOGGER.warn(
                     "[wenxingtools] mixin self-check: {} target group(s) missing; related feature switches closed "
-                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={})",
+                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={}, uncappedArmor={})",
                     missing, fixedMiningEnabled, flyMiningIgnoreEnabled, enchantNameOverrideEnabled, anvilFallbackEnabled,
-                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled);
+                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled,
+                    uncappedArmorEnabled);
         }
     }
 

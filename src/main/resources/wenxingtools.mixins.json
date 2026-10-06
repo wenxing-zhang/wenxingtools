@@ -12,7 +12,8 @@
     "LivingEntityPurgeEffectMixin",
     "PlayerDestroySpeedMixin",
     "BlockStateDestroyProgressMixin",
-    "ItemEntityMergeGuardMixin"
+    "ItemEntityMergeGuardMixin",
+    "CombatRulesMixin"
   ],
   "client": [],
   "server": [],

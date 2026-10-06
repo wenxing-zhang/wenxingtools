@@ -21,6 +21,9 @@ public final class ModItems {
     public static final DeferredItem<ResourceAmplificationPickaxeItem> RESOURCE_AMPLIFICATION_PICKAXE =
             ITEMS.register("resource_amplification_pickaxe", ResourceAmplificationPickaxeItem::new);
 
+    public static final DeferredItem<LifeAmplificationChestplateItem> LIFE_AMPLIFICATION_CHESTPLATE =
+            ITEMS.register("life_amplification_chestplate", LifeAmplificationChestplateItem::new);
+
     public static final DeferredItem<BlockItem> CUSTOM_SPAWNER =
             ITEMS.register("custom_spawner", () -> new BlockItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));
 

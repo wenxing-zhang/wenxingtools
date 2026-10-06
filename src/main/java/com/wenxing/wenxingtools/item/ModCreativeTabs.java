@@ -49,6 +49,7 @@ public final class ModCreativeTabs {
             CreativeModeTab.ItemDisplayParameters parameters,
             CreativeModeTab.Output output) {
         output.accept(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get());
+        output.accept(ModItems.LIFE_AMPLIFICATION_CHESTPLATE.get());
         output.accept(ModItems.CUSTOM_SPAWNER.get());
 
         var enchantmentLookup = parameters.holders().lookupOrThrow(Registries.ENCHANTMENT);
