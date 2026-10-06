@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ILI",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "tag": "forge:ingots/iron"
+    },
+    "L": {
+      "tag": "minecraft:logs"
+    }
+  },
+  "result": {
+    "item": "wenxingtools:life_amplification_chestplate"
+  }
+}

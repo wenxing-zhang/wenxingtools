@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.wenxing.wenxingtools.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "wenxingtools.refmap.json",
+  "mixins": ["AnvilMenuMixin", "AnvilMenuFinalizerMixin", "EnchantmentMixin", "BlockStateDestroyProgressMixin", "BlockDropResourcesMixin", "ItemCombinerMenuAccessor", "LivingEntityPurgeDamageMixin", "LivingEntityPurgeEffectMixin", "ItemEntityMergeGuardMixin", "TargetingConditionsMixin"],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

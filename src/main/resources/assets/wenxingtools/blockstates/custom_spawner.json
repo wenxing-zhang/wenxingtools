@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "powered=false": { "model": "wenxingtools:block/custom_spawner" },
+    "powered=true": { "model": "wenxingtools:block/custom_spawner" }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "tiab"
+    }
+  ],
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:stick"
+    },
+    {
+      "item": "minecraft:stick"
+    }
+  ],
+  "result": {
+    "item": "tiab:time_in_a_bottle",
+    "count": 1
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "irons_spellbooks"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "HHH",
+    "H H",
+    "HHH"
+  ],
+  "key": {
+    "H": {
+      "item": "minecraft:diamond_helmet"
+    }
+  },
+  "result": {
+    "item": "irons_spellbooks:gold_crown",
+    "count": 1
+  }
+}
