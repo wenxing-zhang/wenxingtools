@@ -17,6 +17,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -77,7 +78,12 @@ public class WhitelistManager {
                 try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
                     GSON.toJson(WHITELIST, writer);
                 }
-                Files.move(tmp, configPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                try {
+                    Files.move(tmp, configPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException atomicUnsupported) {
+                    // 文件系统不支持原子移动：降级为普通替换，保证落盘
+                    Files.move(tmp, configPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
             } catch (IOException e) {
                 WenXingTools.LOGGER.error("Failed to save whitelist", e);
                 try {
