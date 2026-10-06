@@ -113,6 +113,7 @@ public class ModCommands {
 
 
                 .then(Commands.literal("whitelist")
+                        .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("add")
                                 .then(Commands.argument("target", StringArgumentType.word())
                                         .suggests(WHITELIST_TARGET_SUGGESTIONS)

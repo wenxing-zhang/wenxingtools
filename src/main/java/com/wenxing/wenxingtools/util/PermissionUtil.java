@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.util;
 
 import com.wenxing.wenxingtools.capability.IAuthorityData;
+import com.wenxing.wenxingtools.network.PacketHandler;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class PermissionUtil {
@@ -21,6 +22,7 @@ public final class PermissionUtil {
         if (!data.isInvincibleCharacteristicOn()) return false;
         if (!hasPermission) {
             data.setInvincibleCharacteristic(false);
+            syncAfterRevoke(player);
             return false;
         }
         return true;
@@ -31,6 +33,7 @@ public final class PermissionUtil {
         if (!data.isResourceCharacteristicOn()) return false;
         if (!hasPermission) {
             data.setResourceCharacteristic(false);
+            syncAfterRevoke(player);
             return false;
         }
         return true;
@@ -41,6 +44,7 @@ public final class PermissionUtil {
         if (!data.isFreedomCharacteristicOn()) return false;
         if (!hasPermission) {
             data.setFreedomCharacteristic(false);
+            syncAfterRevoke(player);
             return false;
         }
         return true;
@@ -51,8 +55,17 @@ public final class PermissionUtil {
         if (!data.isKillAuraCharacteristicOn()) return false;
         if (!hasPermission) {
             data.setKillAuraCharacteristic(false);
+            syncAfterRevoke(player);
             return false;
         }
         return true;
+    }
+
+    // 失权翻转后立即推一次权威数据，避免客户端镜像停留在旧开关值
+    private static void syncAfterRevoke(ServerPlayer player) {
+        if (player.level().isClientSide) {
+            return;
+        }
+        PacketHandler.syncAuthorityData(player);
     }
 }
