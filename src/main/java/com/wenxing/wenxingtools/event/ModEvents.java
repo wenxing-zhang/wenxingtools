@@ -63,6 +63,7 @@ public class ModEvents {
 
 
             Entity original = event.getOriginal();
+            com.wenxing.wenxingtools.compat.SoftModCompat.copyPersistentGiftFlags(original, event.getEntity());
             original.reviveCaps();
             try {
                 original.getCapability(AuthorityDataProvider.AUTHORITY_DATA).ifPresent(oldStore -> {

@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.compat;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -333,6 +334,24 @@ public final class SoftModCompat {
             player.getPersistentData().putBoolean(PERSIST_TIAB_STARTER, true);
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[compat] TIAB starter failed: {}", t.toString());
+        }
+    }
+
+    /**
+     * 一次性发放标记存于玩家 ForgeData；死亡重生会重建玩家实体，而 Forge 补丁不在 restoreFrom/clone
+     * 里复制 ForgeData（只在实体存档往返时读写），故标记会在重生后丢失、导致重登重复发放，需在 Clone 事件搬运。
+     */
+    public static void copyPersistentGiftFlags(net.minecraft.world.entity.Entity from,
+                                               net.minecraft.world.entity.Entity to) {
+        if (from == null || to == null) {
+            return;
+        }
+        CompoundTag source = from.getPersistentData();
+        CompoundTag target = to.getPersistentData();
+        for (String key : new String[]{PERSIST_TIAB_STARTER, PERSIST_HEAD_SLOT_GIFT}) {
+            if (source.getBoolean(key)) {
+                target.putBoolean(key, true);
+            }
         }
     }
 }
