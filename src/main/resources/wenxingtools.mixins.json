@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.wenxing.wenxingtools.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AnvilMenuMixin",
+    "AnvilMenuFinalizerMixin",
+    "EnchantmentMixin",
+    "EnchantmentWeaponCoverageMixin",
+    "LivingEntityPurgeDamageMixin",
+    "LivingEntityPurgeEffectMixin",
+    "PlayerDestroySpeedMixin",
+    "BlockStateDestroyProgressMixin",
+    "ItemEntityMergeGuardMixin"
+  ],
+  "client": [],
+  "server": [],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

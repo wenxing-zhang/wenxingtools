@@ -1,0 +1,24 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "irons_spellbooks"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "HHH",
+    "H H",
+    "HHH"
+  ],
+  "key": {
+    "H": {
+      "item": "minecraft:diamond_helmet"
+    }
+  },
+  "result": {
+    "id": "irons_spellbooks:gold_crown",
+    "count": 1
+  }
+}

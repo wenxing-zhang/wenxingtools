@@ -1,0 +1,109 @@
+# This file controls what your mod uses for loading. It is the common file used by both Forge and NeoForge.
+# The structure is mostly the same, but the Forge version is not guaranteed to work on NeoForge, and vice versa.
+
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+
+# The license for your mod
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+description='''
+WenXingTools private utility mod for 1.21.1 NeoForge.
+'''
+
+[[mixins]]
+config="wenxingtools.mixins.json"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+# 软依赖：Beyond Dimensions 自定义合成（beyonddimensions + kubejs 齐备时生效）
+[[dependencies.${mod_id}]]
+    modId="beyonddimensions"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="kubejs"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# 软依赖：净化增幅第三方词条剥离（缺失静默降级）
+[[dependencies.${mod_id}]]
+    modId="infernalmobs"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="l2hostility"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# 软依赖：TACZ 枪械资源增幅链（缺失时反射静默降级）
+[[dependencies.${mod_id}]]
+    modId="tacz"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# 软依赖：Malum 精魂资源增幅（缺失时反射静默降级）
+[[dependencies.${mod_id}]]
+    modId="malum"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# 软依赖：Goety 灵魂能量资源增幅（缺失时反射静默降级）
+[[dependencies.${mod_id}]]
+    modId="goety"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+# 软依赖：Curios / Iron's Spells / Time in a Bottle（缺失时静默跳过对应功能）
+[[dependencies.${mod_id}]]
+    modId="curios"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="irons_spellbooks"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="tiab"
+    type="optional"
+    versionRange="[0,)"
+    ordering="AFTER"
+    side="BOTH"

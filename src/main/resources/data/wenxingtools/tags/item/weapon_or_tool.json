@@ -1,0 +1,17 @@
+{
+  "values": [
+    "#minecraft:enchantable/weapon",
+    "#minecraft:enchantable/mining",
+    "#minecraft:enchantable/bow",
+    "#minecraft:enchantable/crossbow",
+    "#minecraft:enchantable/fishing",
+    "#minecraft:enchantable/trident",
+    "#c:tools",
+    "#c:tools/melee_weapon",
+    "#c:tools/mining_tool",
+    "#c:tools/bow",
+    "#c:tools/crossbow",
+    "#c:tools/fishing_rod",
+    "#c:tools/spear"
+  ]
+}

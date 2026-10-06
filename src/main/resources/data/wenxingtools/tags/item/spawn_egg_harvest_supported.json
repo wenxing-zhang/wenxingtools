@@ -1,0 +1,29 @@
+{
+  "values": [
+    "#wenxingtools:weapon_or_tool",
+    {
+      "id": "#c:weapons",
+      "required": false
+    },
+    {
+      "id": "#c:guns",
+      "required": false
+    },
+    {
+      "id": "#c:tools/gun",
+      "required": false
+    },
+    {
+      "id": "#c:tools/ranged_weapon",
+      "required": false
+    },
+    {
+      "id": "#tacz:gun",
+      "required": false
+    },
+    {
+      "id": "#tacz:guns",
+      "required": false
+    }
+  ]
+}

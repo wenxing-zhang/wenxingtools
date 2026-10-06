@@ -1,0 +1,26 @@
+{
+  "description": {
+    "translate": "enchantment.wenxingtools.potion_amplification"
+  },
+  "supported_items": "#minecraft:enchantable/armor",
+  "weight": 10,
+  "max_level": 5,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 5
+  },
+  "max_cost": {
+    "base": 15,
+    "per_level_above_first": 10
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "head",
+    "chest",
+    "legs",
+    "feet"
+  ],
+  "treasure": true,
+  "tradeable": true,
+  "discoverable": true
+}

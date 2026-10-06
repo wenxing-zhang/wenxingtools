@@ -1,0 +1,23 @@
+{
+  "description": {
+    "translate": "enchantment.wenxingtools.resource_amplification"
+  },
+  "supported_items": "#wenxingtools:weapon_or_tool",
+  "weight": 10,
+  "max_level": 1,
+  "min_cost": {
+    "base": 10,
+    "per_level_above_first": 5
+  },
+  "max_cost": {
+    "base": 15,
+    "per_level_above_first": 10
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "mainhand"
+  ],
+  "treasure": true,
+  "tradeable": true,
+  "discoverable": true
+}

@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "wenxingtools:life_amplification",
+    "wenxingtools:attack_amplification",
+    "wenxingtools:resource_amplification",
+    "wenxingtools:potion_amplification",
+    "wenxingtools:spawn_egg_harvest",
+    "wenxingtools:effect_purge",
+    "wenxingtools:echo_amplification"
+  ]
+}
