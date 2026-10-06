@@ -16,7 +16,7 @@
 | Java | **17** |
 | 映射 | official 1.20.1 |
 | 构建系统 | ForgeGradle |
-| 模组版本 | 以构建属性为准（当前 1.2.7.1） |
+| 模组版本 | 以构建属性为准（当前 1.2.8） |
 | 包名 | `com.wenxing.wenxingtools` |
 | Mixin | 有 + Access Transformer（SRG 名） |
 | 设计文档 | 版本化设计方案（1.20.1） |
