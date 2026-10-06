@@ -301,8 +301,8 @@ public final class DamageCapBypass {
                         }
                         m.setAccessible(true);
                         found.add(new UnclampedSetter(m));
-                    } catch (NoSuchMethodException ignored) {
-                        // 下一名称
+                    } catch (Exception ignored) {
+                        // 下一名称 / setAccessible 失败（模块化环境 RuntimeException）
                     }
                 }
                 c = c.getSuperclass();
@@ -324,8 +324,8 @@ public final class DamageCapBypass {
                         }
                         f.setAccessible(true);
                         found.add(f);
-                    } catch (NoSuchFieldException ignored) {
-                        // 下一名称
+                    } catch (Exception ignored) {
+                        // 下一名称 / setAccessible 失败（模块化环境 RuntimeException）
                     }
                 }
                 c = c.getSuperclass();

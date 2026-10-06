@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.util;
 
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
+import com.wenxing.wenxingtools.network.ModNetwork;
 import net.minecraft.server.level.ServerPlayer;
 
 public final class PermissionUtil {
@@ -28,6 +29,8 @@ public final class PermissionUtil {
         }
         if (!hasPermission) {
             data.setInvincibleCharacteristic(false);
+            // 吊销后同步客户端，避免 HUD 残留“开”状态
+            ModNetwork.syncAuthorityData(player);
             return false;
         }
         return true;
@@ -42,6 +45,7 @@ public final class PermissionUtil {
         }
         if (!hasPermission) {
             data.setResourceCharacteristic(false);
+            ModNetwork.syncAuthorityData(player);
             return false;
         }
         return true;
@@ -56,6 +60,7 @@ public final class PermissionUtil {
         }
         if (!hasPermission) {
             data.setFreedomCharacteristic(false);
+            ModNetwork.syncAuthorityData(player);
             return false;
         }
         return true;
@@ -70,6 +75,7 @@ public final class PermissionUtil {
         }
         if (!hasPermission) {
             data.setKillAuraCharacteristic(false);
+            ModNetwork.syncAuthorityData(player);
             return false;
         }
         return true;

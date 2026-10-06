@@ -109,6 +109,19 @@ public final class MixinSelfCheck {
             anvilFallbackEnabled = false;
             missing++;
         }
+        // 铁砧重定向目标（AnvilMenuMixin）：createResult 本体 + supportsEnchantment + areCompatible
+        boolean anvilTargetsOk = checkMethod("AnvilMenu.createResult",
+                net.minecraft.world.inventory.AnvilMenu.class,
+                "createResult") == 0
+                && checkMethod("ItemStack.supportsEnchantment",
+                net.minecraft.world.item.ItemStack.class,
+                "supportsEnchantment",
+                net.minecraft.core.Holder.class) == 0
+                && checkStaticAreCompatible() == 0;
+        if (!anvilTargetsOk) {
+            anvilFallbackEnabled = false;
+            missing++;
+        }
         if (checkMethod("LivingEntity.actuallyHurt",
                 LivingEntity.class,
                 "actuallyHurt",
@@ -222,6 +235,26 @@ public final class MixinSelfCheck {
             return 1;
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: Enchantment.getFullname ({})", t.toString());
+            return 1;
+        }
+    }
+
+    private static int checkStaticAreCompatible() {
+        try {
+            Method method = Enchantment.class.getDeclaredMethod(
+                    "areCompatible",
+                    net.minecraft.core.Holder.class, net.minecraft.core.Holder.class);
+            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+                WenXingTools.LOGGER.warn(
+                        "[wenxingtools] Enchantment.areCompatible is not static; AnvilMenuMixin redirect handler must match");
+                return 1;
+            }
+            return 0;
+        } catch (NoSuchMethodException e) {
+            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: Enchantment.areCompatible ({})", e.toString());
+            return 1;
+        } catch (Throwable t) {
+            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: Enchantment.areCompatible ({})", t.toString());
             return 1;
         }
     }

@@ -64,20 +64,19 @@ public record KeyPacket(int key) implements CustomPacketPayload {
             if (target == null) {
                 return;
             }
+            // 接受处理即消耗冷却：拒绝路径同样写回，避免伪造包无限重发
+            LAST_KEY_PRESS.put(player.getUUID(), now);
 
             // 资源增幅附魔开关：不依赖白名单/OP，只要主手有附魔即可切换
             if (target == CharacteristicKey.RESOURCE_AMP) {
-                if (com.wenxing.wenxingtools.event.ResourceAmplificationHandler
-                        .tryToggleResourceAmplificationByPlayer(player, player.getMainHandItem())) {
-                    LAST_KEY_PRESS.put(player.getUUID(), now);
-                }
+                com.wenxing.wenxingtools.event.ResourceAmplificationHandler
+                        .tryToggleResourceAmplificationByPlayer(player, player.getMainHandItem());
                 return;
             }
 
             if (!PermissionUtil.hasPermission(player)) {
                 return;
             }
-            LAST_KEY_PRESS.put(player.getUUID(), now);
 
             IAuthorityData data = AuthorityAttachments.getData(player);
             if (data == null) {

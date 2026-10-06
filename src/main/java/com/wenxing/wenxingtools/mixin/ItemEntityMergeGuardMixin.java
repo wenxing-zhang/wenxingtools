@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.mixin;
 
 import com.wenxing.wenxingtools.entity.MultiStackItemEntity;
+import com.wenxing.wenxingtools.util.MixinSelfCheck;
 import net.minecraft.world.entity.item.ItemEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,15 +19,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ItemEntity.class)
 public abstract class ItemEntityMergeGuardMixin {
 
-    @Inject(method = "isMergable", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "isMergable", at = @At("HEAD"), cancellable = true, require = 0)
     private void wenxingtools$multiStackNotMergable(CallbackInfoReturnable<Boolean> cir) {
+        if (!MixinSelfCheck.isMultiStackMergeGuardEnabled()) {
+            return;
+        }
         if ((Object) this instanceof MultiStackItemEntity) {
             cir.setReturnValue(false);
         }
     }
 
-    @Inject(method = "tryToMerge", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "tryToMerge", at = @At("HEAD"), cancellable = true, require = 0)
     private void wenxingtools$skipMultiStackMerge(ItemEntity other, CallbackInfo ci) {
+        if (!MixinSelfCheck.isMultiStackMergeGuardEnabled()) {
+            return;
+        }
         if ((Object) this instanceof MultiStackItemEntity || other instanceof MultiStackItemEntity) {
             ci.cancel();
         }

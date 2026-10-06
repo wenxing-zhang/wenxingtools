@@ -49,7 +49,7 @@ public abstract class AnvilMenuMixin {
             expect = 0,
             require = 0
     )
-    private boolean allowIncompatibleEnchantmentsByAreCompatible(Holder<Enchantment> a, Holder<Enchantment> b) {
+    private static boolean allowIncompatibleEnchantmentsByAreCompatible(Holder<Enchantment> a, Holder<Enchantment> b) {
         return true;
     }
 

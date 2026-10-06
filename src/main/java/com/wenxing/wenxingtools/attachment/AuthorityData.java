@@ -99,7 +99,7 @@ public class AuthorityData implements IAuthorityData {
 
     @Override
     public void setKillAuraMode(int mode) {
-        this.killAuraMode = mode;
+        this.killAuraMode = mode == 1 ? 1 : 0;
         this.dirty = true;
     }
 

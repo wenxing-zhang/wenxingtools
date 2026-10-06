@@ -98,6 +98,8 @@ public class ModCommands {
                         .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000))
                                 .executes(ctx -> setResourceMultiplier(ctx, IntegerArgumentType.getInteger(ctx, "amount")))))
                 .then(Commands.literal("whitelist")
+                        // 白名单管理独立于特性准入：仅 OP2 可增删，防白名单成员互相扩权/吊销
+                        .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("add")
                                 .then(Commands.argument("target", StringArgumentType.word())
                                         .suggests(WHITELIST_TARGET_SUGGESTIONS)
@@ -115,7 +117,7 @@ public class ModCommands {
                                                 EntityArgument.getEntities(ctx, "targets"),
                                                 ResourceLocationArgument.getId(ctx, "enchantment"),
                                                 1))
-                                        .then(Commands.argument("level", IntegerArgumentType.integer(1))
+                                        .then(Commands.argument("level", IntegerArgumentType.integer(1, 255))
                                                 .executes(ctx -> executeCEnchant(ctx,
                                                         EntityArgument.getEntities(ctx, "targets"),
                                                         ResourceLocationArgument.getId(ctx, "enchantment"),
@@ -270,7 +272,12 @@ public class ModCommands {
             }
         }
         try {
-            return new WhitelistTarget(UUID.fromString(input), null);
+            UUID parsed = UUID.fromString(input);
+            // UUID.fromString 接受 1-1-1-1-1 之类畸形串：要求标准 36 位连字符格式
+            if (!parsed.toString().equalsIgnoreCase(input)) {
+                return null;
+            }
+            return new WhitelistTarget(parsed, null);
         } catch (IllegalArgumentException ignored) {
             return null;
         }
