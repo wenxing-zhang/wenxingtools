@@ -154,18 +154,15 @@ public final class ResourceAmplificationHandler {
             return;
         }
 
-        // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack（倍率 ×1 / 精魂 ×1）
+        // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack
         int resourceLevel = player != null
                 ? resolveResourceLevel(player, event.getSource().getDirectEntity())
                 : 0;
         int factor = resourceLevel > 0 ? computeResourceFactor(resourceLevel) : 0;
-        int spiritMultiplier = resourceLevel > 0
-                ? com.wenxing.wenxingtools.integration.MalumSpiritAmplification.SPIRIT_MULTIPLIER
-                : 1;
 
         if (CombatReentry.enterResourceDrop(event.getEntity())) {
             try {
-                processLivingDrops(event, factor, spiritMultiplier);
+                processLivingDrops(event, factor);
             } catch (Throwable t) {
                 WenXingTools.LOGGER.warn("[resource_amp] living drops merge failed: {}", t.toString(), t);
             } finally {
@@ -248,16 +245,13 @@ public final class ResourceAmplificationHandler {
 
     // 成熟作物右键收割已按产品要求移除（两版一致）
 
-    private static void processLivingDrops(LivingDropsEvent event, int factor, int spiritMultiplier) {
+    private static void processLivingDrops(LivingDropsEvent event, int factor) {
         LivingEntity dead = event.getEntity();
         // 先汇总 totals（物品+组件），再统一放大/追加 roll，最后一次拆分落地，避免中间实体峰值
         Map<DropStackUtil.StackKey, Long> totals = collectMultipliedTotals(event, factor);
         if (factor > 0) {
             appendExtraLootTotals(event, factor, totals);
         }
-        // 精魂（含 CachedSpiritDrops）并入同一 totals → 真正单实体
-        com.wenxing.wenxingtools.integration.MalumSpiritAmplification.contributeNearbySpirits(
-                dead, spiritMultiplier, totals);
         DropStackUtil.replaceWithMerged(
                 dead.level(), dead.getX(), dead.getY(), dead.getZ(),
                 event.getDrops(), totals);
