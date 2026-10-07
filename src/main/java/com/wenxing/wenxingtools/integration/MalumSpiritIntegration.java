@@ -25,15 +25,13 @@ import java.util.UUID;
  *   <li>入世时按击杀者当前的资源增幅状态放大精魂数量（无增幅 ×1 / 有增幅 ×{@value #SPIRIT_MULTIPLIER}）；</li>
  *   <li>放行 Malum 打过「待碎裂」标记的战利品，避免掉落合并掐断 Malum 的「物品 → 精魂」生成链。</li>
  * </ul>
- * 所有反射失败一律保守降级（×1 / 不放行），绝不吞掉或丢弃精魂。
+ * 反射仅用于 Malum 侧类型（第三方模组不参与 reobf，源码名即运行时名）；
+ * 对本模组/Minecraft 自有成员一律用公开 API，反射失败一律保守降级（×1 / 不放行）。
  */
 public final class MalumSpiritIntegration {
 
     /** 精魂资源增幅固定倍率（与掉落物的 (1+level×100) 不同） */
     public static final int SPIRIT_MULTIPLIER = 10;
-
-    /** Malum {@code primeItemForShatter} 调用 setNeverPickUp() 时写入的 pickupDelay 值 */
-    private static final int NEVER_PICKUP_DELAY = 32767;
 
     /** 放大标记：既让 FloatingItemEntity#setItem 的默认物品守卫放行，又防止区块重载时重复放大 */
     private static final String AMP_TAG = WenXingTools.MODID + ":spirit_amp";
@@ -42,8 +40,6 @@ public final class MalumSpiritIntegration {
     private static final String SPIRIT_ITEM_ENTITY_ALT = "com.sammy.malum.common.entity.spirit.SpiritItemEntity";
     private static final String FLOATING_ITEM_ENTITY = "com.sammy.malum.common.entity.FloatingItemEntity";
 
-    private static boolean pickupDelayFieldResolved;
-    private static Field pickupDelayField;
     private static boolean ownerUuidFieldResolved;
     private static Field ownerUuidField;
     private static Method getItemMethod;
@@ -183,27 +179,15 @@ public final class MalumSpiritIntegration {
     }
 
     /**
-     * Malum「待碎裂」战利品：{@code SpiritHarvestHandler.primeItemForShatter} 会 setNeverPickUp() 并让其到期
-     * 碎裂成精魂。这类掉落必须照常入世，否则 Malum 的精魂生成链断裂（1.20.1 无 attachment 缓存可补偿）。
-     * 判据取 prime 的直接后果 pickupDelay==32767；读取失败保守返回 false。
+     * Malum「待碎裂」战利品：{@code SpiritHarvestHandler.primeItemForShatter} 会 setNeverPickUp() 并
+     * setNoGravity(true)，随后让其到期碎裂成精魂。这类掉落必须照常入世，否则 Malum 的精魂生成链断裂。
+     * <p>
+     * 判据取其两个公开可见后果（永不拾取 + 无重力）的合取：本模组/Minecraft 自有成员的官方名在生产环境
+     * 会被 reobf 成 SRG 名，反射私有字段会在真实服务器上静默失效，故一律走公开 API。
      */
     public static boolean isShatterPrimedDrop(ItemEntity itemEntity) {
-        if (itemEntity == null || !itemEntity.hasPickUpDelay()) {
-            return false;
-        }
-        try {
-            if (!pickupDelayFieldResolved) {
-                pickupDelayFieldResolved = true;
-                try {
-                    pickupDelayField = ItemEntity.class.getDeclaredField("pickupDelay");
-                    pickupDelayField.setAccessible(true);
-                } catch (Throwable t) {
-                    WenXingTools.LOGGER.warn("[resource_amp] ItemEntity.pickupDelay field unavailable; Malum shatter-primed drops may be merged: {}", t.toString());
-                }
-            }
-            return pickupDelayField != null && pickupDelayField.getInt(itemEntity) == NEVER_PICKUP_DELAY;
-        } catch (Throwable t) {
-            return false;
-        }
+        return itemEntity != null
+                && itemEntity.hasPickUpDelay()
+                && itemEntity.isNoGravity();
     }
 }
