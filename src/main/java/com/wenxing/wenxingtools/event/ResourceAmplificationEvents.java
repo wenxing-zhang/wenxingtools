@@ -68,14 +68,11 @@ public final class ResourceAmplificationEvents {
                 ? AmpSupport.resolveResourceLevel(player, event.getSource().getDirectEntity())
                 : 0;
         int factor = resourceLevel > 0 ? AmpSupport.computeResourceFactor(resourceLevel) : 0;
-        int spiritMultiplier = resourceLevel > 0
-                ? com.wenxing.wenxingtools.integration.MalumSpiritIntegration.SPIRIT_MULTIPLIER
-                : 1;
 
         // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack
         if (RESOURCE_DROP_CONTEXT.get().add(event.getEntity())) {
             try {
-                applyResourceAmplificationToLivingDrops(event, factor, spiritMultiplier);
+                applyResourceAmplificationToLivingDrops(event, factor);
             } catch (Throwable t) {
                 WenXingTools.LOGGER.warn("[resource_amp] living drops merge failed: {}", t.toString(), t);
             } finally {
@@ -178,11 +175,17 @@ public final class ResourceAmplificationEvents {
 
 
 
-    private static void applyResourceAmplificationToLivingDrops(LivingDropsEvent event, int factor, int spiritMultiplier) {
+    private static void applyResourceAmplificationToLivingDrops(LivingDropsEvent event, int factor) {
         LivingEntity target = event.getEntity();
         List<ItemStack> collected = new ArrayList<>();
+        // Malum 打过「待碎裂」标记的战利品必须原样入世，否则精魂生成链断裂
+        List<ItemEntity> passthrough = new ArrayList<>();
 
         for (ItemEntity itemEntity : event.getDrops()) {
+            if (com.wenxing.wenxingtools.integration.MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
+                passthrough.add(itemEntity);
+                continue;
+            }
             ItemStack stack = itemEntity.getItem();
             if (!stack.isEmpty()) {
                 collected.add(stack.copy());
@@ -212,11 +215,8 @@ public final class ResourceAmplificationEvents {
             }
         }
 
-        // 精魂（含 CachedSpiritDrops）并入同一 totals → 真正单实体
-        com.wenxing.wenxingtools.integration.MalumSpiritIntegration.contributeNearbySpirits(
-                target, spiritMultiplier, totals);
-
         event.getDrops().clear();
+        event.getDrops().addAll(passthrough);
         if (!totals.isEmpty()) {
             event.getDrops().add(com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
                     level, x, y, z, com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals)));
