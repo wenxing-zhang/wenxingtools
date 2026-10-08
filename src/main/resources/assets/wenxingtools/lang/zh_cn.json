@@ -21,6 +21,7 @@
   "item.wenxingtools.custom_spawner": "文星刷怪笼",
   "block.wenxingtools.wenxing_torch": "文星火把",
   "item.wenxingtools.wenxing_torch": "文星火把",
+  "item.wenxingtools.wenxing_torch.desc": "禁止9个区块生成生物",
   "item.wenxingtools.generic_spawn_egg": "文星生物蛋",
   "item.wenxingtools.generic_spawn_egg.entity": "生物: %s",
   "item.wenxingtools.generic_spawn_egg.spawner_hint": "可右键文星刷怪笼切换类型",

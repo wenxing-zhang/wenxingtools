@@ -5,7 +5,6 @@ import com.wenxing.wenxingtools.block.ModBlocks;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.StandingAndWallBlockItem;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -28,7 +27,7 @@ public class ModItems {
 
     public static final RegistryObject<Item> WENXING_TORCH =
             ITEMS.register("wenxing_torch",
-                    () -> new StandingAndWallBlockItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
+                    () -> new WenxingTorchItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
                             new Item.Properties(), Direction.DOWN));
 
     public static final RegistryObject<Item> GENERIC_SPAWN_EGG =

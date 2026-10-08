@@ -21,6 +21,7 @@
   "item.wenxingtools.custom_spawner": "WenXing Spawner",
   "block.wenxingtools.wenxing_torch": "WenXing Torch",
   "item.wenxingtools.wenxing_torch": "WenXing Torch",
+  "item.wenxingtools.wenxing_torch.desc": "Prevents mobs from spawning in 9 chunks",
   "item.wenxingtools.generic_spawn_egg": "WenXing Spawn Egg",
   "item.wenxingtools.generic_spawn_egg.entity": "Mob: %s",
   "item.wenxingtools.generic_spawn_egg.spawner_hint": "Right-click WenXing Spawner to set type",

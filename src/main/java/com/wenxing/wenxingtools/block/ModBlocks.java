@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.block;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -10,6 +11,7 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
+import org.joml.Vector3f;
 
 public class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS =
@@ -35,11 +37,14 @@ public class ModBlocks {
                 .pushReaction(PushReaction.DESTROY);
     }
 
+    private static final DustParticleOptions PURPLE_FLAME =
+            new DustParticleOptions(new Vector3f(0.659f, 0.333f, 0.969f), 1.0f);
+
     public static final RegistryObject<Block> WENXING_TORCH =
-            BLOCKS.register("wenxing_torch", () -> new WenxingTorchBlock(torchProperties()));
+            BLOCKS.register("wenxing_torch", () -> new WenxingTorchBlock(torchProperties(), PURPLE_FLAME));
 
     public static final RegistryObject<Block> WENXING_WALL_TORCH =
-            BLOCKS.register("wenxing_wall_torch", () -> new WenxingWallTorchBlock(torchProperties()));
+            BLOCKS.register("wenxing_wall_torch", () -> new WenxingWallTorchBlock(torchProperties(), PURPLE_FLAME));
 
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);

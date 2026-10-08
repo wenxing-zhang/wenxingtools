@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/torch",
   "textures": {
-    "layer0": "minecraft:block/torch"
+    "layer0": "wenxingtools:block/wenxing_torch"
   }
 }
