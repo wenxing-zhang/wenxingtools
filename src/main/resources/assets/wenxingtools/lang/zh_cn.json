@@ -8,7 +8,7 @@
   "enchantment.wenxingtools.resource_amplification": "资源增幅",
   "enchantment.wenxingtools.resource_amplification.desc": "挖掘/击杀时按倍率额外掉落物品与经验值（按 KP0 开关，可在键位中改）",
   "enchantment.wenxingtools.potion_amplification": "药水增幅",
-  "enchantment.wenxingtools.potion_amplification.desc": "延长身上已有的正面药水效果时长",
+  "enchantment.wenxingtools.potion_amplification.desc": "延长身上已有的正面药水效果时长，并持续清除自身负面药水效果",
   "enchantment.wenxingtools.spawn_egg_harvest": "掠蛋",
   "enchantment.wenxingtools.spawn_egg_harvest.desc": "掉落对应刷怪蛋，不受资源增幅与抢夺影响",
   "enchantment.wenxingtools.effect_purge": "净化增幅",

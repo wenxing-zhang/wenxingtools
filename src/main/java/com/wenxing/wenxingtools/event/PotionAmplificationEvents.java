@@ -3,12 +3,14 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -71,6 +73,41 @@ public final class PotionAmplificationEvents {
             rememberPotionAmpArmor(player, slot, worn ? to : ItemStack.EMPTY);
         } finally {
             POTION_AMP_RUNNING.set(false);
+        }
+    }
+
+
+    @SubscribeEvent
+    public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+        if (event.getEntity().level().isClientSide) {
+            return;
+        }
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        cleanseHarmfulEffects(player);
+    }
+
+
+    private static void cleanseHarmfulEffects(Player player) {
+        if (getMaxPotionAmplificationLevelOnArmor(player) <= 0) {
+            return;
+        }
+        List<MobEffect> harmful = null;
+        for (MobEffectInstance instance : player.getActiveEffects()) {
+            MobEffect effect = instance.getEffect();
+            if (effect.getCategory() == MobEffectCategory.HARMFUL) {
+                if (harmful == null) {
+                    harmful = new ArrayList<>();
+                }
+                harmful.add(effect);
+            }
+        }
+        if (harmful == null) {
+            return;
+        }
+        for (MobEffect effect : harmful) {
+            player.removeEffect(effect);
         }
     }
 
