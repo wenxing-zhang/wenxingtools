@@ -26,7 +26,7 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
     public static final int SPAWN_DELAY_TICKS = 20;
     public static final int SPAWN_COUNT = 16;
     public static final int MAX_NEARBY_ENTITIES = 32;
-    public static final int SPAWN_RANGE = 5;
+    public static final int SPAWN_RANGE = 9;
 
     public static int delayTicks() {
         return SPAWN_DELAY_TICKS;

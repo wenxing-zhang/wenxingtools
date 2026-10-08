@@ -19,7 +19,7 @@
   "item.wenxingtools.life_amplification_chestplate": "Life Amplification Chestplate",
   "block.wenxingtools.custom_spawner": "WenXing Spawner",
   "item.wenxingtools.custom_spawner": "WenXing Spawner",
-  "item.wenxingtools.custom_spawner.desc": "5x5 spawn range",
+  "item.wenxingtools.custom_spawner.desc": "9x9 spawn range",
   "block.wenxingtools.wenxing_torch": "WenXing Torch",
   "item.wenxingtools.wenxing_torch": "WenXing Torch",
   "item.wenxingtools.wenxing_torch.desc": "Prevents mobs from spawning in 9 chunks",
