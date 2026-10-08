@@ -45,6 +45,7 @@ public class WenXingTools {
         MinecraftForge.EVENT_BUS.register(CharacteristicTickHandler.class);
         MinecraftForge.EVENT_BUS.register(WorldTickHandlers.class);
         MinecraftForge.EVENT_BUS.register(com.wenxing.wenxingtools.event.CompatGameplayEvents.class);
+        MinecraftForge.EVENT_BUS.register(com.wenxing.wenxingtools.event.SpawnSuppressionEvents.class);
 
     }
 

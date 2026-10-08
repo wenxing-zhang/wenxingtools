@@ -5,6 +5,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -24,6 +25,21 @@ public class ModBlocks {
                     .isViewBlocking((state, getter, pos) -> false)
                     .requiresCorrectToolForDrops()
                     .lightLevel(state -> 0)));
+
+    private static BlockBehaviour.Properties torchProperties() {
+        return BlockBehaviour.Properties.of()
+                .noCollission()
+                .instabreak()
+                .lightLevel(state -> 14)
+                .sound(SoundType.WOOD)
+                .pushReaction(PushReaction.DESTROY);
+    }
+
+    public static final RegistryObject<Block> WENXING_TORCH =
+            BLOCKS.register("wenxing_torch", () -> new WenxingTorchBlock(torchProperties()));
+
+    public static final RegistryObject<Block> WENXING_WALL_TORCH =
+            BLOCKS.register("wenxing_wall_torch", () -> new WenxingWallTorchBlock(torchProperties()));
 
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/torch",
+  "textures": {
+    "layer0": "minecraft:block/torch"
+  }
+}

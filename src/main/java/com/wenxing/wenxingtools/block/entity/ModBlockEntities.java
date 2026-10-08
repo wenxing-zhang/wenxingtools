@@ -16,6 +16,11 @@ public class ModBlockEntities {
             BLOCK_ENTITIES.register("custom_spawner",
                     () -> BlockEntityType.Builder.of(CustomSpawnerBlockEntity::new, ModBlocks.CUSTOM_SPAWNER.get()).build(null));
 
+    public static final RegistryObject<BlockEntityType<WenxingTorchBlockEntity>> WENXING_TORCH =
+            BLOCK_ENTITIES.register("wenxing_torch",
+                    () -> BlockEntityType.Builder.of(WenxingTorchBlockEntity::new,
+                            ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get()).build(null));
+
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
     }

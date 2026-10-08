@@ -2,8 +2,10 @@ package com.wenxing.wenxingtools.item;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.block.ModBlocks;
+import net.minecraft.core.Direction;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.StandingAndWallBlockItem;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -23,6 +25,11 @@ public class ModItems {
             ITEMS.register("custom_spawner",
                     () -> new BlockItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));
 
+
+    public static final RegistryObject<Item> WENXING_TORCH =
+            ITEMS.register("wenxing_torch",
+                    () -> new StandingAndWallBlockItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
+                            new Item.Properties(), Direction.DOWN));
 
     public static final RegistryObject<Item> GENERIC_SPAWN_EGG =
             ITEMS.register("generic_spawn_egg",

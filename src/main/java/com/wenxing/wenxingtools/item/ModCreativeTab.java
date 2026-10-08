@@ -26,6 +26,7 @@ public final class ModCreativeTab {
                         output.accept(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get().getDefaultInstance());
                         output.accept(ModItems.LIFE_AMPLIFICATION_CHESTPLATE.get().getDefaultInstance());
                         output.accept(ModItems.CUSTOM_SPAWNER.get().getDefaultInstance());
+                        output.accept(ModItems.WENXING_TORCH.get().getDefaultInstance());
                         output.accept(ModItems.GENERIC_SPAWN_EGG.get().getDefaultInstance());
                         addEnchantedBook(output, ModEnchantments.LIFE_AMPLIFICATION.get());
                         addEnchantedBook(output, ModEnchantments.ATTACK_AMPLIFICATION.get());
