@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * 文星刷怪笼 BE（行为对齐 Forge 1.20.1）：
- * - 硬编码：延迟 20t / 单次 16 / 附近上限 32 / 刷怪范围 8
+ * - 硬编码：延迟 20t / 单次 16 / 附近上限 32 / 刷怪范围 9（±4，9×9 方形）
  * - 红石通电才刷；忽略群系/光照；不做玩家在场检测
  * - NoAI + 持久化；出生点吸附可站立地面（±2）
  * - 客户端：供电时火焰/烟雾粒子
@@ -31,7 +31,7 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
     public static final int SPAWN_DELAY_TICKS = 20;
     public static final int SPAWN_COUNT = 16;
     public static final int MAX_NEARBY_ENTITIES = 32;
-    public static final int SPAWN_RANGE = 8;
+    public static final int SPAWN_RANGE = 9;
 
     private static final String TAG_SPAWN_TYPE = "SpawnType";
     private static final String TAG_COOLDOWN = "Cooldown";
@@ -143,7 +143,8 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
         if (spawnType == null) {
             return;
         }
-        AABB countArea = new AABB(pos).inflate(SPAWN_RANGE);
+        int halfRange = Math.max(1, SPAWN_RANGE / 2);
+        AABB countArea = new AABB(pos).inflate(halfRange, 4.0D, halfRange);
         int nearby = level.getEntitiesOfClass(LivingEntity.class, countArea,
                 e -> e.getType() == spawnType && e.isAlive()).size();
         if (nearby >= MAX_NEARBY_ENTITIES) {
@@ -153,10 +154,10 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
         RandomSource random = level.getRandom();
         int toSpawn = Math.min(SPAWN_COUNT, MAX_NEARBY_ENTITIES - nearby);
         for (int i = 0; i < toSpawn; i++) {
-            double angle = random.nextDouble() * Math.PI * 2.0;
-            double dist = 1.0 + random.nextDouble() * (double) (Math.max(1, SPAWN_RANGE - 1));
-            double x = pos.getX() + 0.5 + Math.cos(angle) * dist;
-            double z = pos.getZ() + 0.5 + Math.sin(angle) * dist;
+            int offsetX = random.nextInt(SPAWN_RANGE) - halfRange;
+            int offsetZ = random.nextInt(SPAWN_RANGE) - halfRange;
+            double x = pos.getX() + 0.5 + offsetX;
+            double z = pos.getZ() + 0.5 + offsetZ;
 
             Entity entity = spawnType.create(level);
             if (!(entity instanceof Mob mob)) {

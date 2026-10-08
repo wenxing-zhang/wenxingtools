@@ -3,7 +3,6 @@ package com.wenxing.wenxingtools.item;
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.SpawnEggItem;
@@ -26,8 +25,8 @@ public final class ModItems {
     public static final DeferredItem<LifeAmplificationChestplateItem> LIFE_AMPLIFICATION_CHESTPLATE =
             ITEMS.register("life_amplification_chestplate", LifeAmplificationChestplateItem::new);
 
-    public static final DeferredItem<BlockItem> CUSTOM_SPAWNER =
-            ITEMS.register("custom_spawner", () -> new BlockItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));
+    public static final DeferredItem<CustomSpawnerItem> CUSTOM_SPAWNER =
+            ITEMS.register("custom_spawner", () -> new CustomSpawnerItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));
 
     public static final DeferredItem<WenxingTorchItem> WENXING_TORCH =
             ITEMS.register("wenxing_torch",
