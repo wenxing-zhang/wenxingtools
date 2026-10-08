@@ -51,6 +51,7 @@ public final class ModCreativeTabs {
         output.accept(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get());
         output.accept(ModItems.LIFE_AMPLIFICATION_CHESTPLATE.get());
         output.accept(ModItems.CUSTOM_SPAWNER.get());
+        output.accept(ModItems.WENXING_TORCH.get());
 
         var enchantmentLookup = parameters.holders().lookupOrThrow(Registries.ENCHANTMENT);
         for (ResourceKey<Enchantment> key : BOOK_ENCHANTMENTS) {

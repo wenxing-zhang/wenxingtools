@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.item;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -27,6 +28,11 @@ public final class ModItems {
 
     public static final DeferredItem<BlockItem> CUSTOM_SPAWNER =
             ITEMS.register("custom_spawner", () -> new BlockItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));
+
+    public static final DeferredItem<WenxingTorchItem> WENXING_TORCH =
+            ITEMS.register("wenxing_torch",
+                    () -> new WenxingTorchItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
+                            new Item.Properties(), Direction.DOWN));
 
     /** 原版无蛋的 Boss/精英：末影龙、凋灵、监守者（掠蛋与刷笼改类型可用）。延迟解析实体类型，避免注册顺序依赖 */
     public static final DeferredItem<SpawnEggItem> ENDER_DRAGON_SPAWN_EGG = ITEMS.register(
