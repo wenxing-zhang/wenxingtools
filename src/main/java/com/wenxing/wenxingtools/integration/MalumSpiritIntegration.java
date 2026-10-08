@@ -6,6 +6,7 @@ import com.wenxing.wenxingtools.event.AmpSupport;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -20,13 +21,16 @@ import java.util.UUID;
  * <p>
  * 精魂是 Malum 的 {@code SpiritItemEntity}（{@code FloatingEntity} 子类）：它会自动飞向击杀者并被吸收，
  * <b>不是</b>普通掉落物，也不应被转成落地物品——否则玩家只能靠碰撞拾取，且并入/丢弃过程会丢精魂。
- * 本类只做两件事，不改写精魂实体形态：
+ * <p>
+ * 入世时按击杀者当前的资源增幅状态处理（无增幅不动 / 有增幅 ×{@value #SPIRIT_MULTIPLIER}）：
  * <ul>
- *   <li>入世时按击杀者当前的资源增幅状态放大精魂数量（无增幅 ×1 / 有增幅 ×{@value #SPIRIT_MULTIPLIER}）；</li>
+ *   <li><b>新生成</b>的精魂：直接把放大后的数量交给击杀者——走 Malum 的 {@code pickupSpirit} 入账
+ *       （保留精魂袋路由 / 收集事件 / 溢出落地语义），成功即移除实体，达成「立即到手」；任一步失败回落为放大实体。</li>
+ *   <li><b>从磁盘重载</b>的精魂：只放大实体所载数量、保留实体交回 Malum 自动收集，避免重登时重复入账。</li>
  *   <li>放行 Malum 打过「待碎裂」标记的战利品，避免掉落合并掐断 Malum 的「物品 → 精魂」生成链。</li>
  * </ul>
  * 反射仅用于 Malum 侧类型（第三方模组不参与 reobf，源码名即运行时名）；
- * 对本模组/Minecraft 自有成员一律用公开 API，反射失败一律保守降级（×1 / 不放行）。
+ * 对本模组/Minecraft 自有成员一律用公开 API，反射失败一律保守降级（×1 / 保留实体）。
  */
 public final class MalumSpiritIntegration {
 
@@ -39,11 +43,13 @@ public final class MalumSpiritIntegration {
     private static final String SPIRIT_ITEM_ENTITY = "com.sammy.malum.common.entity.SpiritItemEntity";
     private static final String SPIRIT_ITEM_ENTITY_ALT = "com.sammy.malum.common.entity.spirit.SpiritItemEntity";
     private static final String FLOATING_ITEM_ENTITY = "com.sammy.malum.common.entity.FloatingItemEntity";
+    private static final String SPIRIT_HARVEST_HANDLER = "com.sammy.malum.core.handlers.SpiritHarvestHandler";
 
     private static boolean ownerUuidFieldResolved;
     private static Field ownerUuidField;
     private static Method getItemMethod;
     private static Method setItemMethod;
+    private static Method pickupSpiritMethod;
 
     private MalumSpiritIntegration() {
     }
@@ -54,7 +60,7 @@ public final class MalumSpiritIntegration {
         WenXingTools.LOGGER.debug("[resource_amp] Malum spirit helpers registered (amp x{})", SPIRIT_MULTIPLIER);
     }
 
-    /** 精魂入世：按击杀者增幅状态放大数量，保留实体本身交回 Malum 自动收集。 */
+    /** 精魂入世：新生成的直接交给击杀者，磁盘重载的只放大实体数量。 */
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide() || !(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
@@ -63,15 +69,21 @@ public final class MalumSpiritIntegration {
         if (entity == null || entity.isRemoved() || !isSpiritDropEntity(entity)) {
             return;
         }
-        int multiplier = resolveSpiritMultiplier(serverLevel, entity);
+        Player owner = resolveSpiritOwner(serverLevel, entity);
+        if (owner == null) {
+            return;
+        }
+        int multiplier = resolveSpiritMultiplier(owner);
         if (multiplier <= 1) {
             return;
         }
+        // 新生成的精魂直接交付；磁盘重载的保留实体，避免重登时重复入账
+        boolean deliverDirectly = !event.loadedFromDisk();
         // 延到下一刻，避免在入世事件里改动刚入世的实体
-        serverLevel.getServer().execute(() -> amplifySpirit(entity, multiplier));
+        serverLevel.getServer().execute(() -> handleSpirit(entity, owner, multiplier, deliverDirectly));
     }
 
-    private static void amplifySpirit(Entity entity, int multiplier) {
+    private static void handleSpirit(Entity entity, Player owner, int multiplier, boolean deliverDirectly) {
         if (entity.isRemoved()) {
             return;
         }
@@ -79,13 +91,19 @@ public final class MalumSpiritIntegration {
         if (current == null || current.isEmpty()) {
             return;
         }
-        // 已放大过（区块重载会再次触发入世事件）：跳过，避免指数级放大
+        // 已处理过（区块重载会再次触发入世事件）：跳过，避免指数级放大
         if (current.hasTag() && current.getTag().contains(AMP_TAG)) {
             return;
         }
         long amplified = (long) current.getCount() * multiplier;
         int count = (int) Math.min(amplified, Integer.MAX_VALUE);
         if (count <= current.getCount() || count <= 0) {
+            return;
+        }
+        if (deliverDirectly && !owner.isRemoved()
+                && owner.level() == entity.level()
+                && deliverSpiritDirectly(owner, current, count)) {
+            entity.discard();
             return;
         }
         ItemStack target = current.copy();
@@ -96,16 +114,38 @@ public final class MalumSpiritIntegration {
         }
     }
 
-    /** 击杀者是否处于资源增幅：读精魂的 ownerUUID → 解析玩家 → 现算等级。任一环节失败一律 ×1。 */
-    private static int resolveSpiritMultiplier(ServerLevel level, Entity spirit) {
+    /** 走 Malum 的 pickupSpirit 直接入账（保留精魂袋 / 收集事件 / 溢出落地）；失败返回 false 交回放大回落。 */
+    private static boolean deliverSpiritDirectly(Player owner, ItemStack current, int count) {
+        ItemStack delivered = current.copy();
+        delivered.setCount(count);
+        try {
+            if (pickupSpiritMethod == null) {
+                Class<?> handler = Class.forName(SPIRIT_HARVEST_HANDLER);
+                pickupSpiritMethod = handler.getMethod("pickupSpirit", LivingEntity.class, ItemStack.class);
+            }
+            pickupSpiritMethod.invoke(null, owner, delivered);
+            return true;
+        } catch (Throwable t) {
+            WenXingTools.LOGGER.warn("[resource_amp] Malum spirit direct pickup unavailable, falling back: {}", t.toString());
+            return false;
+        }
+    }
+
+    /** 击杀者：读精魂的 ownerUUID → 解析在线玩家。任一环节失败返回 null（调用方保守放行）。 */
+    private static Player resolveSpiritOwner(ServerLevel level, Entity spirit) {
         UUID ownerUuid = readOwnerUuid(spirit);
         if (ownerUuid == null || level.getServer() == null) {
-            return 1;
+            return null;
         }
         Player player = level.getServer().getPlayerList().getPlayer(ownerUuid);
         if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
-            return 1;
+            return null;
         }
+        return player;
+    }
+
+    /** 击杀者是否处于资源增幅：现算等级，>0 返回 ×{@value #SPIRIT_MULTIPLIER}，否则 ×1。 */
+    private static int resolveSpiritMultiplier(Player player) {
         int resourceLevel = AmpSupport.resolveResourceLevel(player, null);
         return resourceLevel > 0 ? SPIRIT_MULTIPLIER : 1;
     }
