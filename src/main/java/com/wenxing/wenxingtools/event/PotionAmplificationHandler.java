@@ -4,6 +4,9 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.util.CombatReentry;
+import net.minecraft.core.Holder;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -12,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -70,6 +74,36 @@ public final class PotionAmplificationHandler {
             }
             rememberPotionAmpArmor(player, slot, worn ? to : ItemStack.EMPTY);
         });
+    }
+
+    @SubscribeEvent
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        Player player = event.getEntity();
+        if (player.level().isClientSide) {
+            return;
+        }
+        cleanseHarmfulEffects(player);
+    }
+
+    private static void cleanseHarmfulEffects(Player player) {
+        if (getMaxPotionAmplificationLevelOnArmor(player) <= 0) {
+            return;
+        }
+        List<Holder<MobEffect>> harmful = null;
+        for (MobEffectInstance instance : player.getActiveEffects()) {
+            if (instance.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
+                if (harmful == null) {
+                    harmful = new ArrayList<>();
+                }
+                harmful.add(instance.getEffect());
+            }
+        }
+        if (harmful == null) {
+            return;
+        }
+        for (Holder<MobEffect> effect : harmful) {
+            player.removeEffect(effect);
+        }
     }
 
     private static int getPotionAmplificationLevel(ItemStack stack, LivingEntity context) {
