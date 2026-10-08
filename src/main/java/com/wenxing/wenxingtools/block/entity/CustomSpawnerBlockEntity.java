@@ -26,7 +26,7 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
     public static final int SPAWN_DELAY_TICKS = 20;
     public static final int SPAWN_COUNT = 16;
     public static final int MAX_NEARBY_ENTITIES = 32;
-    public static final int SPAWN_RANGE = 8;
+    public static final int SPAWN_RANGE = 5;
 
     public static int delayTicks() {
         return SPAWN_DELAY_TICKS;
@@ -155,7 +155,8 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
             return;
         }
 
-        AABB countArea = new AABB(pos).inflate(spawnRange());
+        int halfRange = Math.max(1, spawnRange() / 2);
+        AABB countArea = new AABB(pos).inflate(halfRange, 4.0D, halfRange);
         int nearby = level.getEntitiesOfClass(LivingEntity.class, countArea,
                 e -> e.getType() == spawnType && e.isAlive()).size();
         if (nearby >= maxNearbyEntities()) {
@@ -166,10 +167,10 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
         int toSpawn = Math.min(spawnCount(), maxNearbyEntities() - nearby);
         boolean anySpawned = false;
         for (int i = 0; i < toSpawn; i++) {
-            double angle = random.nextDouble() * Math.PI * 2.0;
-            double dist = 1.0 + random.nextDouble() * (double) (Math.max(1, spawnRange() - 1));
-            double x = pos.getX() + 0.5 + Math.cos(angle) * dist;
-            double z = pos.getZ() + 0.5 + Math.sin(angle) * dist;
+            int offsetX = random.nextInt(spawnRange()) - halfRange;
+            int offsetZ = random.nextInt(spawnRange()) - halfRange;
+            double x = pos.getX() + 0.5 + offsetX;
+            double z = pos.getZ() + 0.5 + offsetZ;
 
             Entity entity = spawnType.create(level);
             if (!(entity instanceof Mob mob)) {
