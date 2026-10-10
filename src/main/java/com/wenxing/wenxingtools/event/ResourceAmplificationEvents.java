@@ -1,6 +1,8 @@
 package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import com.wenxing.wenxingtools.mixin.LootPoolAccessor;
+import com.wenxing.wenxingtools.mixin.LootTableAccessor;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -15,12 +17,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -28,7 +34,6 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Mod.EventBusSubscriber(modid = WenXingTools.MODID)
@@ -38,6 +43,9 @@ public final class ResourceAmplificationEvents {
     private static final ThreadLocal<Set<LivingEntity>> RESOURCE_XP_CONTEXT = ThreadLocal.withInitial(HashSet::new);
 
     private static final int RESOURCE_CONTEXT_SHRINK_THRESHOLD = 64;
+
+    /** 「全掉落」单次击杀最多追加的 entry 数：Boss / 箱子表条目多，防单实体 NBT 与同步包爆量 */
+    private static final int ALL_ENTRY_DROP_LIMIT = 64;
 
     private ResourceAmplificationEvents() {
     }
@@ -67,12 +75,11 @@ public final class ResourceAmplificationEvents {
         int resourceLevel = player != null
                 ? AmpSupport.resolveResourceLevel(player, event.getSource().getDirectEntity())
                 : 0;
-        int factor = resourceLevel > 0 ? AmpSupport.computeResourceFactor(resourceLevel) : 0;
 
         // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack
         if (RESOURCE_DROP_CONTEXT.get().add(event.getEntity())) {
             try {
-                applyResourceAmplificationToLivingDrops(event, factor);
+                applyResourceAmplificationToLivingDrops(event, resourceLevel);
             } catch (Throwable t) {
                 WenXingTools.LOGGER.warn("[resource_amp] living drops merge failed: {}", t.toString(), t);
             } finally {
@@ -124,6 +131,37 @@ public final class ResourceAmplificationEvents {
         }
     }
 
+    /**
+     * 挖掘方块的经验增幅。
+     * <p>
+     * 挂在这里而不是 {@code Block.dropResources}：Forge 让 {@code Block.playerDestroy} 传 {@code dropXp=false}
+     * （见 Block.java.patch 注释「Don't drop xp as part of the resources」），玩家破坏路径的经验改由
+     * {@code ServerPlayerGameMode#destroyBlock} 经 {@code ForgeHooks.onBlockBreakEvent} 返回值发放——
+     * 即本事件的 {@link BlockEvent.BreakEvent#getExpToDrop()}。改写它即可让倍率落在唯一发放点上。
+     */
+    @SubscribeEvent
+    public static void onBlockBreakExperience(BlockEvent.BreakEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
+        Player player = event.getPlayer();
+        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+            return;
+        }
+        if (player.getAbilities().instabuild) {
+            return;
+        }
+        int exp = event.getExpToDrop();
+        if (exp <= 0) {
+            return;
+        }
+        int resourceLevel = AmpSupport.getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        if (resourceLevel <= 0) {
+            return;
+        }
+        long amplified = (long) exp * (1L + (long) AmpSupport.computeResourceFactor(resourceLevel));
+        event.setExpToDrop((int) Math.min(amplified, (long) AmpConstants.RESOURCE_XP_CAP));
+    }
 
     public static void clearPlayerResourceContexts() {
         RESOURCE_DROP_CONTEXT.remove();
@@ -165,17 +203,17 @@ public final class ResourceAmplificationEvents {
         if (!state.canHarvestBlock(level, pos, player)) {
             return;
         }
-        int factor = AmpSupport.computeResourceFactor(resourceLevel);
         var drops = Block.getDrops(state, serverLevel, pos, be, player, useTool);
         com.wenxing.wenxingtools.util.DropStackUtil.popTotals(
                 level, pos,
-                com.wenxing.wenxingtools.util.DropStackUtil.mergeStacksMultiplied(drops, factor));
+                com.wenxing.wenxingtools.util.DropStackUtil.mergeStacksMultipliedBy(
+                        drops, dropped -> AmpSupport.computeResourceFactorForStack(resourceLevel, dropped)));
     }
 
 
 
 
-    private static void applyResourceAmplificationToLivingDrops(LivingDropsEvent event, int factor) {
+    private static void applyResourceAmplificationToLivingDrops(LivingDropsEvent event, int resourceLevel) {
         LivingEntity target = event.getEntity();
         List<ItemStack> collected = new ArrayList<>();
         // Malum 打过「待碎裂」标记的战利品必须原样入世，否则精魂生成链断裂
@@ -192,8 +230,9 @@ public final class ResourceAmplificationEvents {
             }
         }
 
-        if (factor > 0) {
-            collectExtraLootTableStacks(target, event, collected);
+        // 有增幅时不再随机 roll 额外次数，而是把战利品表内每个 entry 各追加一份（尊重 entry 自身条件）
+        if (resourceLevel > 0) {
+            collectAllLootTableStacks(target, event, collected);
         }
 
         double x = target.getX();
@@ -202,11 +241,11 @@ public final class ResourceAmplificationEvents {
         Level level = target.level();
 
         java.util.Map<com.wenxing.wenxingtools.util.DropStackUtil.StackKey, Long> totals = new java.util.LinkedHashMap<>();
-        long multiplier = 1L + factor;
         for (ItemStack stack : collected) {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
+            long multiplier = 1L + (long) AmpSupport.computeResourceFactorForStack(resourceLevel, stack);
             long total = (long) stack.getCount() * multiplier;
             if (total > 0) {
                 ItemStack keyStack = stack.copy();
@@ -224,7 +263,13 @@ public final class ResourceAmplificationEvents {
     }
 
 
-    private static void collectExtraLootTableStacks(LivingEntity target, LivingDropsEvent event, List<ItemStack> collected) {
+    /**
+     * 把战利品表内每个 entry 各追加一份（原版那份随机掉落已由 {@code LivingDropsEvent} 给出，两者按物品+NBT 累加）。
+     * <p>
+     * entry 自身的条件由 {@code LootPoolEntryContainer#expand} 内部的 {@code canRun} 尊重，条件不满足者不产出；
+     * pool 级条件单独判。条目数受 {@link #ALL_ENTRY_DROP_LIMIT} 闸门保护，超限截断并留日志。
+     */
+    private static void collectAllLootTableStacks(LivingEntity target, LivingDropsEvent event, List<ItemStack> collected) {
         if (!(target.level() instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -258,14 +303,47 @@ public final class ResourceAmplificationEvents {
                     .withLuck(lastHurtByPlayer.getLuck());
         }
         LootParams params = builder.create(LootContextParamSets.ENTITY);
+        LootContext context = new LootContext.Builder(params)
+                .withOptionalRandomSeed(serverLevel.random.nextLong())
+                .create(lootTableId);
 
-        for (int roll = 0; roll < AmpConstants.EXTRA_LOOT_ROLLS; roll++) {
+        List<LootPool> pools = ((LootTableAccessor) (Object) lootTable).wenxingtools$getPools();
+        if (pools == null || pools.isEmpty()) {
+            return;
+        }
 
-            for (ItemStack stack : lootTable.getRandomItems(params)) {
-                if (!stack.isEmpty()) {
-                    collected.add(stack.copy());
-                }
+        int appended = 0;
+        for (LootPool pool : pools) {
+            if (pool == null || appended >= ALL_ENTRY_DROP_LIMIT) {
+                break;
             }
+            LootPoolAccessor poolAccessor = (LootPoolAccessor) (Object) pool;
+            var poolCondition = poolAccessor.wenxingtools$getCompositeCondition();
+            if (poolCondition != null && !poolCondition.test(context)) {
+                continue;
+            }
+            LootPoolEntryContainer[] containers = poolAccessor.wenxingtools$getEntries();
+            if (containers == null) {
+                continue;
+            }
+            for (LootPoolEntryContainer container : containers) {
+                if (container == null) {
+                    continue;
+                }
+                if (appended >= ALL_ENTRY_DROP_LIMIT) {
+                    break;
+                }
+                container.expand(context, entry -> entry.createItemStack(dropped -> {
+                    if (dropped != null && !dropped.isEmpty()) {
+                        collected.add(dropped.copy());
+                    }
+                }, context));
+                appended++;
+            }
+        }
+        if (appended >= ALL_ENTRY_DROP_LIMIT) {
+            WenXingTools.LOGGER.warn("[resource_amp] loot table {} truncated at {} entries (all-drop guard)",
+                    lootTableId, ALL_ENTRY_DROP_LIMIT);
         }
     }
 }

@@ -6,7 +6,7 @@
   "enchantment.wenxingtools.attack_amplification": "Attack Amplification",
   "enchantment.wenxingtools.attack_amplification.desc": "Deals true damage equal to a percentage of the target's max health and heals you.",
   "enchantment.wenxingtools.resource_amplification": "Resource Amplification",
-  "enchantment.wenxingtools.resource_amplification.desc": "Drops multiplied loot and XP from mining/mobs (toggle with the KP0 keybind, rebindable).",
+  "enchantment.wenxingtools.resource_amplification.desc": "Extra loot and XP from mining/kills; kills also drop every loot-table entry (stackable x(1+level*100), non-stackable x(1+level*10)); toggle with KP0",
   "enchantment.wenxingtools.potion_amplification": "Potion Amplification",
   "enchantment.wenxingtools.potion_amplification.desc": "Extends the duration of existing positive potion effects and continuously clears your own negative effects.",
   "enchantment.wenxingtools.spawn_egg_harvest": "Spawn Egg Harvest",

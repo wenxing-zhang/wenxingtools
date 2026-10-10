@@ -44,6 +44,18 @@ public final class AmpSupport {
         return level * 100;
     }
 
+    /**
+     * 按物品分层的资源增幅额外倍率：可堆叠物品 {@code level×100}，不可堆叠（{@code maxStackSize == 1}）{@code level×10}。
+     * <p>
+     * 不可堆叠物品若吃满 ×100，会在单个 MultiStack 实体里塞进上百个单件 ItemStack，NBT 与同步包体量失控，故单独降档。
+     */
+    public static int computeResourceFactorForStack(int level, ItemStack stack) {
+        if (level <= 0 || stack == null || stack.isEmpty()) {
+            return 0;
+        }
+        return level * (stack.getMaxStackSize() > 1 ? 100 : 10);
+    }
+
     public static Component buildResourceAmplificationToggleMessage(boolean newState, int displayLevel) {
         int factor = computeResourceFactor(displayLevel);
         String base;

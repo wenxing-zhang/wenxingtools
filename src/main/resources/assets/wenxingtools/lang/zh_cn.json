@@ -6,7 +6,7 @@
   "enchantment.wenxingtools.attack_amplification": "攻击增幅",
   "enchantment.wenxingtools.attack_amplification.desc": "命中时按目标最大生命百分比造成真实伤害并治疗自身",
   "enchantment.wenxingtools.resource_amplification": "资源增幅",
-  "enchantment.wenxingtools.resource_amplification.desc": "挖掘/击杀时按倍率额外掉落物品与经验值（按 KP0 开关，可在键位中改）",
+  "enchantment.wenxingtools.resource_amplification.desc": "挖掘/击杀时按倍率额外掉落物品与经验；击杀另额外掉出全部战利品表物品（可堆叠 ×(1+等级×100)，不可堆叠 ×(1+等级×10)）；按 KP0 开关",
   "enchantment.wenxingtools.potion_amplification": "药水增幅",
   "enchantment.wenxingtools.potion_amplification.desc": "延长身上已有的正面药水效果时长，并持续清除自身负面药水效果",
   "enchantment.wenxingtools.spawn_egg_harvest": "掠蛋",

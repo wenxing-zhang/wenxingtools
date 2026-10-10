@@ -14,9 +14,6 @@ public final class AmpConstants {
     public static final int RESOURCE_XP_CAP = 2000000000;
 
 
-    public static final int EXTRA_LOOT_ROLLS = 2;
-
-
     public static final long RESOURCE_XP_MULTIPLIER = 100L;
 
 

@@ -67,6 +67,34 @@ public final class DropStackUtil {
         return totals;
     }
 
+    /**
+     * 按「每个 stack 各自的额外倍率」合并——倍率随物品属性变化（如可堆叠与否）时用这个入口。
+     * 返回的计数为<b>额外</b>数量（不含原版已掉落的那一份），与 {@link #mergeStacksMultiplied} 语义一致。
+     */
+    public static Map<StackKey, Long> mergeStacksMultipliedBy(Collection<ItemStack> stacks,
+                                                              java.util.function.ToLongFunction<ItemStack> multiplierFor) {
+        Map<StackKey, Long> totals = new LinkedHashMap<>();
+        if (stacks == null || stacks.isEmpty() || multiplierFor == null) {
+            return totals;
+        }
+        for (ItemStack drop : stacks) {
+            if (drop == null || drop.isEmpty()) {
+                continue;
+            }
+            long multiplier = multiplierFor.applyAsLong(drop);
+            if (multiplier <= 0) {
+                continue;
+            }
+            long extra = (long) drop.getCount() * multiplier;
+            if (extra > 0) {
+                ItemStack keyStack = drop.copy();
+                keyStack.setCount(1);
+                totals.merge(new StackKey(keyStack), extra, Long::sum);
+            }
+        }
+        return totals;
+    }
+
     public static List<ItemStack> totalsToStacks(Map<StackKey, Long> totals) {
         List<ItemStack> stacks = new ArrayList<>();
         if (totals == null || totals.isEmpty()) {
