@@ -76,7 +76,10 @@ public final class CombatUtil {
         if (health > maxHealth) health = maxHealth;
         if (health < 0.0f) health = 0.0f;
 
-        player.setHealth(health);
+        // 每 tick 每无敌玩家都会走到这里，值未变时不触碰实体健康数据（写回同值无可观察副作用）
+        if (player.getHealth() != health) {
+            player.setHealth(health);
+        }
     }
 
 

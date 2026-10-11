@@ -2,6 +2,7 @@ package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -9,8 +10,8 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
-import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -77,12 +78,17 @@ public final class PotionAmplificationEvents {
     }
 
 
+    // 净化只对玩家生效，故挂 PlayerTickEvent 而非 LivingTickEvent——后者会对全服每个 LivingEntity
+    // 每 tick 分发一次，而函数体第一件事就是把非玩家排除掉。
     @SubscribeEvent
-    public static void onLivingTick(LivingEvent.LivingTickEvent event) {
-        if (event.getEntity().level().isClientSide) {
+    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
             return;
         }
-        if (!(event.getEntity() instanceof Player player)) {
+        if (event.player.level().isClientSide) {
+            return;
+        }
+        if (!(event.player instanceof ServerPlayer player)) {
             return;
         }
         cleanseHarmfulEffects(player);
@@ -127,7 +133,8 @@ public final class PotionAmplificationEvents {
     }
 
     private static int getPotionAmplificationLevel(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        // isEnchanted 已覆盖 isEmpty；无附魔数据时 getItemEnchantmentLevel 必然返回 0 却仍会构造一次 HashMap
+        if (stack == null || !stack.isEnchanted()) {
             return 0;
         }
         return EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.POTION_AMPLIFICATION.get(), stack);

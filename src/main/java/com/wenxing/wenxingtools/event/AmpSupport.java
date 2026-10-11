@@ -41,7 +41,7 @@ public final class AmpSupport {
     }
 
     public static int computeResourceFactor(int level) {
-        return level * 100;
+        return level * AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL;
     }
 
     /**
@@ -53,7 +53,9 @@ public final class AmpSupport {
         if (level <= 0 || stack == null || stack.isEmpty()) {
             return 0;
         }
-        return level * (stack.getMaxStackSize() > 1 ? 100 : 10);
+        return level * (stack.getMaxStackSize() > 1
+                ? AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL
+                : AmpConstants.RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL);
     }
 
     public static Component buildResourceAmplificationToggleMessage(boolean newState, int displayLevel) {
@@ -65,7 +67,8 @@ public final class AmpSupport {
             if (displayLevel > 0) {
 
                 int totalFactor = factor + 1;
-                base = "资源增幅附魔：已开启（当前资源倍率: " + totalFactor + "，经验倍率: " + (displayLevel * 10000) + "）";
+                int xpFactor = computeResourceFactor(displayLevel) * (int) AmpConstants.RESOURCE_XP_MULTIPLIER;
+                base = "资源增幅附魔：已开启（当前资源倍率: " + totalFactor + "，经验倍率: " + xpFactor + "）";
             } else {
                 base = "资源增幅附魔：已开启";
             }
@@ -113,12 +116,23 @@ public final class AmpSupport {
     }
 
     public static int getTotalEnchantmentLevelAllSlots(Player player, Enchantment enchantment) {
+        return sumEnchantmentLevel(player, enchantment, EquipmentSlot.values());
+    }
+
+    /**
+     * 遍历给定槽位累加附魔等级。
+     * <p>
+     * 先过 {@code isEnchanted()}：1.20.1 的 {@code getItemEnchantmentLevel} 会解析整张附魔表构造 HashMap，
+     * 对没有附魔数据的装备纯属白付一次解析与分配。
+     */
+    private static int sumEnchantmentLevel(Player player, Enchantment enchantment, EquipmentSlot[] slots) {
         int totalLevel = 0;
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
+        for (EquipmentSlot slot : slots) {
             ItemStack stack = player.getItemBySlot(slot);
-            if (!stack.isEmpty()) {
-                totalLevel += EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
+            if (!stack.isEnchanted()) {
+                continue;
             }
+            totalLevel += EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
         return totalLevel;
     }
@@ -164,7 +178,10 @@ public final class AmpSupport {
         if (player == null || enchantment == null) {
             return 0;
         }
-        int level = EnchantmentHelper.getItemEnchantmentLevel(enchantment, player.getMainHandItem());
+        ItemStack mainHand = player.getMainHandItem();
+        int level = mainHand.isEnchanted()
+                ? EnchantmentHelper.getItemEnchantmentLevel(enchantment, mainHand)
+                : 0;
         if (level > 0) {
             return level;
         }
@@ -172,19 +189,14 @@ public final class AmpSupport {
     }
 
     public static int getTotalEnchantmentLevelOnArmor(Player player, Enchantment enchantment) {
-        int totalLevel = 0;
-        for (EquipmentSlot slot : AmpConstants.ARMOR_SLOTS) {
-            ItemStack stack = player.getItemBySlot(slot);
-            totalLevel += EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
-        }
-        return totalLevel;
+        return sumEnchantmentLevel(player, enchantment, AmpConstants.ARMOR_SLOTS);
     }
 
     public static int getEffectiveResourceAmplificationLevel(Player player, ItemStack stack) {
         if (!isResourceAmplificationEnabled(player)) {
             return 0;
         }
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || !stack.isEnchanted()) {
             return 0;
         }
         return EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.RESOURCE_AMPLIFICATION.get(), stack);

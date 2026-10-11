@@ -13,7 +13,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 可选模组软加载工具：Curios / Iron's Spells / Time in a Bottle。
@@ -45,7 +47,31 @@ public final class SoftModCompat {
     private static volatile Method getCuriosHelper;
     private static volatile Method findFirstCurioItem;
 
+    private static final Map<String, Method> METHOD_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Item> ITEM_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Attribute> ATTRIBUTE_CACHE = new ConcurrentHashMap<>();
+
     private SoftModCompat() {
+    }
+
+    /** 反射 Method 句柄缓存：槽扫描每 20 tick 对每个在线玩家调一次，句柄本身不会变。 */
+    private static Method cachedMethod(Class<?> owner, String name, Class<?>... params) {
+        StringBuilder keyBuilder = new StringBuilder(owner.getName()).append('#').append(name);
+        for (Class<?> param : params) {
+            keyBuilder.append(',').append(param.getName());
+        }
+        String key = keyBuilder.toString();
+        Method cached = METHOD_CACHE.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            Method found = owner.getMethod(name, params);
+            METHOD_CACHE.put(key, found);
+            return found;
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     public static boolean isLoaded(String modId) {
@@ -57,9 +83,17 @@ public final class SoftModCompat {
     }
 
     public static Item itemOrNull(String id) {
+        Item cached = ITEM_CACHE.get(id);
+        if (cached != null) {
+            return cached;
+        }
         try {
             ResourceLocation rl = new ResourceLocation(id);
-            return ForgeRegistries.ITEMS.getValue(rl);
+            Item found = ForgeRegistries.ITEMS.getValue(rl);
+            if (found != null) {
+                ITEM_CACHE.put(id, found);
+            }
+            return found;
         } catch (Throwable t) {
             return null;
         }
@@ -122,13 +156,20 @@ public final class SoftModCompat {
     private static boolean scanCuriosInventoryFor(net.minecraft.world.entity.LivingEntity entity, Item item) {
         try {
             Class<?> curiosApi = Class.forName("top.theillusivec4.curios.api.CuriosApi");
-            Method getInv = curiosApi.getMethod("getCuriosInventory",
+            Method getInv = cachedMethod(curiosApi, "getCuriosInventory",
                     net.minecraft.world.entity.LivingEntity.class);
+            if (getInv == null) {
+                return false;
+            }
             Object handler = unwrapMaybeOptional(getInv.invoke(null, entity));
             if (handler == null) {
                 return false;
             }
-            Object curiosMap = handler.getClass().getMethod("getCurios").invoke(handler);
+            Method getCurios = cachedMethod(handler.getClass(), "getCurios");
+            if (getCurios == null) {
+                return false;
+            }
+            Object curiosMap = getCurios.invoke(handler);
             if (!(curiosMap instanceof java.util.Map<?, ?> map)) {
                 return false;
             }
@@ -136,9 +177,20 @@ public final class SoftModCompat {
                 if (stacksHandler == null) {
                     continue;
                 }
-                Object itemHandler = stacksHandler.getClass().getMethod("getStacks").invoke(stacksHandler);
-                int n = (Integer) itemHandler.getClass().getMethod("getSlots").invoke(itemHandler);
-                Method getStackInSlot = itemHandler.getClass().getMethod("getStackInSlot", int.class);
+                Method getStacks = cachedMethod(stacksHandler.getClass(), "getStacks");
+                if (getStacks == null) {
+                    continue;
+                }
+                Object itemHandler = getStacks.invoke(stacksHandler);
+                if (itemHandler == null) {
+                    continue;
+                }
+                Method getSlots = cachedMethod(itemHandler.getClass(), "getSlots");
+                Method getStackInSlot = cachedMethod(itemHandler.getClass(), "getStackInSlot", int.class);
+                if (getSlots == null || getStackInSlot == null) {
+                    continue;
+                }
+                int n = (Integer) getSlots.invoke(itemHandler);
                 for (int i = 0; i < n; i++) {
                     Object stackObj = getStackInSlot.invoke(itemHandler, i);
                     if (stackObj instanceof ItemStack stack && !stack.isEmpty() && stack.is(item)) {
@@ -201,8 +253,16 @@ public final class SoftModCompat {
     // ----------------------------------------------------------
 
     private static Attribute attr(String id) {
+        Attribute cached = ATTRIBUTE_CACHE.get(id);
+        if (cached != null) {
+            return cached;
+        }
         try {
-            return ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(id));
+            Attribute found = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(id));
+            if (found != null) {
+                ATTRIBUTE_CACHE.put(id, found);
+            }
+            return found;
         } catch (Throwable t) {
             return null;
         }

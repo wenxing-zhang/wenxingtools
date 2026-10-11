@@ -167,14 +167,6 @@ public final class EffectPurgeSupport {
     }
 
 
-    public static long getSuppressUntil(LivingEntity entity) {
-        if (entity == null) {
-            return 0L;
-        }
-        return entity.getPersistentData().getLong(PURGE_UNTIL_TAG);
-    }
-
-
     public static List<String> copyKeys(CompoundTag tag) {
         return List.copyOf(tag.getAllKeys());
     }

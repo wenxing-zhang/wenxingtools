@@ -4,6 +4,8 @@ import com.wenxing.wenxingtools.capability.IAuthorityData;
 import com.wenxing.wenxingtools.network.PacketHandler;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.function.Predicate;
+
 public final class PermissionUtil {
     private PermissionUtil() {}
 
@@ -18,47 +20,47 @@ public final class PermissionUtil {
     }
 
     public static boolean isInvincibleCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        if (player == null || data == null) return false;
-        if (!data.isInvincibleCharacteristicOn()) return false;
-        if (!hasPermission) {
-            data.setInvincibleCharacteristic(false);
-            syncAfterRevoke(player);
-            return false;
-        }
-        return true;
+        return isActiveOrRevoke(player, data, hasPermission,
+                IAuthorityData::isInvincibleCharacteristicOn,
+                IAuthorityData::setInvincibleCharacteristic);
     }
 
     public static boolean isResourceCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        if (player == null || data == null) return false;
-        if (!data.isResourceCharacteristicOn()) return false;
-        if (!hasPermission) {
-            data.setResourceCharacteristic(false);
-            syncAfterRevoke(player);
-            return false;
-        }
-        return true;
+        return isActiveOrRevoke(player, data, hasPermission,
+                IAuthorityData::isResourceCharacteristicOn,
+                IAuthorityData::setResourceCharacteristic);
     }
 
     public static boolean isFreedomCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
+        return isActiveOrRevoke(player, data, hasPermission,
+                IAuthorityData::isFreedomCharacteristicOn,
+                IAuthorityData::setFreedomCharacteristic);
+    }
+
+    public static boolean isKillAuraCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
+        return isActiveOrRevoke(player, data, hasPermission,
+                IAuthorityData::isKillAuraCharacteristicOn,
+                IAuthorityData::setKillAuraCharacteristic);
+    }
+
+    // 四个特性共用的「开启且有权则放行，开着但失权则关掉并推同步」判定。
+    // 方法引用均无捕获，无额外分配。
+    private static boolean isActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission,
+                                            Predicate<IAuthorityData> isOn,
+                                            CharacteristicFlagSetter setOff) {
         if (player == null || data == null) return false;
-        if (!data.isFreedomCharacteristicOn()) return false;
+        if (!isOn.test(data)) return false;
         if (!hasPermission) {
-            data.setFreedomCharacteristic(false);
+            setOff.set(data, false);
             syncAfterRevoke(player);
             return false;
         }
         return true;
     }
 
-    public static boolean isKillAuraCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        if (player == null || data == null) return false;
-        if (!data.isKillAuraCharacteristicOn()) return false;
-        if (!hasPermission) {
-            data.setKillAuraCharacteristic(false);
-            syncAfterRevoke(player);
-            return false;
-        }
-        return true;
+    @FunctionalInterface
+    private interface CharacteristicFlagSetter {
+        void set(IAuthorityData data, boolean active);
     }
 
     // 失权翻转后立即推一次权威数据，避免客户端镜像停留在旧开关值

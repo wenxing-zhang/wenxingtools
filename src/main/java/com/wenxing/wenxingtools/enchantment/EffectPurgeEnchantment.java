@@ -1,6 +1,5 @@
 package com.wenxing.wenxingtools.enchantment;
 
-import com.wenxing.wenxingtools.event.EffectPurgeSupport;
 import com.wenxing.wenxingtools.integration.TaczIntegration;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -29,10 +28,5 @@ public class EffectPurgeEnchantment extends AbstractAmplificationEnchantment {
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack) {
         return isWeaponOrTool(stack) || TaczIntegration.isTaczGunItem(stack) || super.canApplyAtEnchantingTable(stack);
-    }
-
-
-    public static boolean isNuclearLevel(int level) {
-        return level >= EffectPurgeSupport.NUCLEAR_LEVEL;
     }
 }

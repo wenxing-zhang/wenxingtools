@@ -793,6 +793,34 @@
 
 ---
 
+## 2026-10-11 · 优化（不改玩法：性能等价改写 + 死代码清理）
+
+**性能（行为等价）**
+
+- 药水增幅净化挂点由 `LivingTickEvent` 改为 `PlayerTickEvent`：原挂点对全服每个 LivingEntity 每刻分发一次，而函数体第一件事就是把非玩家排除掉。净化仍是每刻一次，时机落在同一刻末段。
+- 杀戮光环过滤条件下推到 `getEntitiesOfClass` 谓词，不再把 20×4×20 范围内的全部 LivingEntity 收进 List 后逐个丢弃。
+- 附魔等级累加先过 `ItemStack#isEnchanted()` 短路（1.20.1 的 `getItemEnchantmentLevel` 会解析整张附魔表构造 HashMap）；`getTotalEnchantmentLevelAllSlots` 与 `getTotalEnchantmentLevelOnArmor` 合并为同一实现。
+- `SoftModCompat`：Curios 槽扫描的反射 Method 句柄、Item / Attribute 的 registry 查表结果改为缓存（查不到时不缓存，保留原重试语义）。运行日志显示 `findFirstCurio` 路径因 `ICuriosHelper` 类名不存在而恒走扫描兜底。
+- `CombatUtil.anchorPlayerHealthByCommand`：血量未变化时不再写回实体健康数据。
+- 倍率魔数 `100 / 10 / 10000` 收敛为 `AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL` 与 `RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL`，数值不变。
+
+**结构 / 死代码（无行为影响）**
+
+- 删除全仓无调用方的 `EffectPurgeSupport.getSuppressUntil`、`EffectPurgeEnchantment.isNuclearLevel`、`GoetySoulEnergyIntegration.clearFactorContext` 及其登出调用。
+- `PermissionUtil` 四个同构「生效或撤销」方法折叠为一个共用实现。
+- `.gitignore` 增加 `Error/`（游戏运行日志，非源码资产）。
+
+**未做（需裁定或收益不抵成本）**
+
+- 净化降频门控 `CHECK_INTERVAL_TICKS` 失效（返回值被调用方丢弃）：修复会把净化粒度从每刻变每 20 刻，属行为微变，未动。
+- `AuthorityDataSyncPacket` 客户端无消费者：删链路需重排通道号并提升协议版本，属产品决策，未动。
+- `EnchantmentEvents` 纯转发壳：删除涉及删文件，按 §7 待确认。
+- `DamageCapBypass` 分片扣血抽模板、6 个注册类样板折叠：纯可读性收益，改动面为战斗核心与主注册路径，未做。
+
+**构建**：`gradlew build` 成功，产出 `build/libs/wenxingtools-Forge-1.20.1-1.2.8.jar` 与 `...-1.2.8-slim.jar`。AI 未执行任何测试（§3.5）。
+
+---
+
 ## 历史摘要
 
 - 资源增幅公式：掉落 ×(1+level×100)；额外 2 roll；经验 ×level×10000。

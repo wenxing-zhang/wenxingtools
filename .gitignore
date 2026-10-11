@@ -26,3 +26,6 @@ forge*changelog.txt
 
 # agent workspace (local runtime state)
 .rivet/
+
+# 游戏运行日志（非源码资产，单份可达十余 MB）
+Error/

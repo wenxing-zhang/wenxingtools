@@ -93,15 +93,14 @@ public final class WorldTickHandlers {
         AABB searchBox = new AABB(
                 player.getX() - radius, player.getY() - 2.0D, player.getZ() - radius,
                 player.getX() + radius, player.getY() + 2.0D, player.getZ() + radius);
-        List<LivingEntity> candidates = level.getEntitiesOfClass(LivingEntity.class, searchBox);
+        // 过滤下推到实体选择器：不再把整片区域的所有 LivingEntity 收进 List 再逐个丢弃
+        List<LivingEntity> candidates = level.getEntitiesOfClass(LivingEntity.class, searchBox,
+                target -> testKillAuraTarget(player, hostileOnly, target));
 
         int killed = 0;
         for (LivingEntity target : candidates) {
             if (killed >= maxTargets) {
                 break;
-            }
-            if (!testKillAuraTarget(player, hostileOnly, target)) {
-                continue;
             }
             CombatUtil.forceKillEntityByCommandChain(server, target, player);
             killed++;

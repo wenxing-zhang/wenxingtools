@@ -101,7 +101,6 @@ public class ModEvents {
                 com.wenxing.wenxingtools.network.packet.KeyPacket.clearCooldown(pid);
                 com.wenxing.wenxingtools.network.packet.ResourceAmpTogglePacket.clearCooldown(pid);
                 ResourceAmplificationEvents.clearPlayerResourceContexts();
-                com.wenxing.wenxingtools.integration.GoetySoulEnergyIntegration.clearFactorContext();
             }
         }
 

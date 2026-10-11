@@ -67,10 +67,6 @@ public final class GoetySoulEnergyIntegration {
         ensureReady();
     }
 
-    public static void clearFactorContext() {
-        // 兼容旧调用：已不再使用 ThreadLocal
-    }
-
     private static void onSoulEnergyGain(Object event) {
         if (!ensureReady() || event == null) {
             return;
