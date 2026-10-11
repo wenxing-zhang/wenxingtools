@@ -79,6 +79,8 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
             return;
         }
         Map<Enchantment, Integer> current = new HashMap<>(EnchantmentHelper.getEnchantments(stack));
+        // 胸甲禁止诅咒附魔：战利品/交易/铁砧/指令写进来的诅咒一并剔除
+        current.entrySet().removeIf(entry -> entry.getKey().isCurse());
         current.put(Enchantments.ALL_DAMAGE_PROTECTION, BUILTIN_PROTECTION_LEVEL);
         current.put(ModEnchantments.LIFE_AMPLIFICATION.get(), BUILTIN_LIFE_AMPLIFICATION_LEVEL);
         current.put(ModEnchantments.POTION_AMPLIFICATION.get(), BUILTIN_POTION_AMPLIFICATION_LEVEL);
@@ -120,11 +122,21 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
         int life = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.LIFE_AMPLIFICATION.get(), stack);
         int potion = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.POTION_AMPLIFICATION.get(), stack);
         if (flagged
+                && !hasCurse(stack)
                 && protection == BUILTIN_PROTECTION_LEVEL
                 && life == BUILTIN_LIFE_AMPLIFICATION_LEVEL
                 && potion == BUILTIN_POTION_AMPLIFICATION_LEVEL) {
             return;
         }
         applyBuiltinEnchantments(stack);
+    }
+
+    private static boolean hasCurse(ItemStack stack) {
+        for (Enchantment enchantment : EnchantmentHelper.getEnchantments(stack).keySet()) {
+            if (enchantment.isCurse()) {
+                return true;
+            }
+        }
+        return false;
     }
 }
