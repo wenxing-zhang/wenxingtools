@@ -11,6 +11,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -29,6 +30,7 @@ import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -107,6 +109,43 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
         lookup.get(key).ifPresent(holder -> BuiltinEnchantmentSupport.raiseAtLeast(stack, holder, minLevel));
     }
 
+    /**
+     * 剥离胸甲上的诅咒附魔（{@code #minecraft:curse}，含绑定诅咒 / 消失诅咒）。
+     * 供铁砧结果生成（即时）与入包兜底（每刻）调用，确保任何写入途径都无法让胸甲保留诅咒。
+     */
+    public static void stripCurseEnchantments(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+        ItemEnchantments enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+        stripCurseEnchantments(stack, enchantments);
+    }
+
+    /** 返回是否发生剥离。 */
+    public static boolean stripCurseEnchantments(ItemStack stack, ItemEnchantments enchantments) {
+        if (stack == null || stack.isEmpty() || enchantments.isEmpty()) {
+            return false;
+        }
+        List<Holder<Enchantment>> curses = null;
+        for (Holder<Enchantment> holder : enchantments.keySet()) {
+            if (holder.is(EnchantmentTags.CURSE)) {
+                if (curses == null) {
+                    curses = new ArrayList<>();
+                }
+                curses.add(holder);
+            }
+        }
+        if (curses == null) {
+            return false;
+        }
+        ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(enchantments);
+        for (Holder<Enchantment> curse : curses) {
+            mutable.set(curse, 0);
+        }
+        stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+        return true;
+    }
+
     /** 全部内置附魔项是否已达内置下限（纯组件判断，不触碰注册表）。 */
     private static boolean hasAllBuiltinEnchantments(ItemEnchantments enchantments) {
         return BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.LIFE_AMPLIFICATION, BUILTIN_LIFE_AMPLIFICATION_LEVEL)
@@ -137,6 +176,10 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
             return;
         }
         ItemEnchantments enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+        // 诅咒兜底剥离：覆盖铁砧取回 / 附魔台 / 指令 cenchant / 第三方等一切写入途径
+        if (stripCurseEnchantments(stack, enchantments)) {
+            enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
+        }
         if (stack.has(DataComponents.UNBREAKABLE) && hasAllBuiltinEnchantments(enchantments)) {
             return;
         }

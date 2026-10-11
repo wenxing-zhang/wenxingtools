@@ -101,6 +101,20 @@ public abstract class AnvilMenuFinalizerMixin {
         }
         applyFallbackForAnyEnchantment();
         applyFixedExperienceCostForcefully();
+        stripCursesFromResultIfWenxingChestplate();
+    }
+
+    /** 文星胸甲禁止诅咒附魔（设计 §6.4）：结果槽为胸甲时即时剥离 #minecraft:curse。 */
+    private void stripCursesFromResultIfWenxingChestplate() {
+        ResultContainer resultSlots = getResultSlots();
+        if (resultSlots == null) {
+            return;
+        }
+        ItemStack result = resultSlots.getItem(0);
+        if (!result.isEmpty()
+                && result.getItem() instanceof com.wenxing.wenxingtools.item.LifeAmplificationChestplateItem) {
+            com.wenxing.wenxingtools.item.LifeAmplificationChestplateItem.stripCurseEnchantments(result);
+        }
     }
 
     private void applyFallbackForAnyEnchantment() {
