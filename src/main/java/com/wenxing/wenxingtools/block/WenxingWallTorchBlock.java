@@ -26,11 +26,7 @@ public class WenxingWallTorchBlock extends WallTorchBlock implements EntityBlock
 
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
-        double x = pos.getX() + 0.5;
-        double y = pos.getY() + 0.7;
-        double z = pos.getZ() + 0.5;
-        level.addParticle(ParticleTypes.SMOKE, x, y, z, 0.0, 0.0, 0.0);
-        level.addParticle(WenxingTorchBlock.PURPLE_FLAME, x, y, z, 0.0, 0.0, 0.0);
+        WenxingTorchBlock.emitTorchParticles(level, pos);
     }
 
     @Nullable

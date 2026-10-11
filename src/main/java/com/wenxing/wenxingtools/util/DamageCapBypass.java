@@ -206,7 +206,6 @@ public final class DamageCapBypass {
         if (source == null) {
             return 0.0f;
         }
-        clearDamageCooldowns(target);
 
         float totalDealt = 0.0f;
         float remaining = amount;

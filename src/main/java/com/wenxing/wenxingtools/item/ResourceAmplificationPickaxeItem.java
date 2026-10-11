@@ -1,9 +1,7 @@
 package com.wenxing.wenxingtools.item;
 
-import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -30,7 +28,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
-import java.util.Optional;
 
 public class ResourceAmplificationPickaxeItem extends PickaxeItem {
 
@@ -99,57 +96,31 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
             return;
         }
         stack.set(DataComponents.UNBREAKABLE, new Unbreakable(true));
-        raiseBuiltinEnchantment(stack, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL, player);
-        raiseBuiltinEnchantment(stack, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL, player);
-        raiseBuiltinEnchantment(stack, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL, player);
-        raiseBuiltinEnchantment(stack, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL, player);
-        raiseBuiltinEnchantment(stack, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL, player);
+        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL, player);
+        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL, player);
+        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL, player);
+        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL, player);
+        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL, player);
 
         ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(
                 stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY));
         if (player != null) {
-            player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
-                    .get(Enchantments.UNBREAKING)
+            var enchantLookup = player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT);
+            enchantLookup.get(Enchantments.UNBREAKING)
                     .ifPresent(holder -> mutable.set(holder, Math.max(mutable.getLevel(holder), BUILTIN_UNBREAKING_LEVEL)));
-            player.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
-                    .get(Enchantments.FORTUNE)
+            enchantLookup.get(Enchantments.FORTUNE)
                     .ifPresent(holder -> mutable.set(holder, Math.max(mutable.getLevel(holder), BUILTIN_FORTUNE_LEVEL)));
         }
         stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
     }
 
-    /** 内置附魔下限写入：仅当现有等级低于下限才写回，避免覆盖铁砧/指令提升的更高等级。 */
-    private static void raiseBuiltinEnchantment(ItemStack stack, ResourceKey<Enchantment> key, int minLevel, LivingEntity context) {
-        Optional<Holder.Reference<Enchantment>> holderOpt = EnchantUtil.resolveHolder(key, context);
-        if (holderOpt.isEmpty()) {
-            return;
-        }
-        Holder<Enchantment> holder = holderOpt.get();
-        ItemEnchantments current = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
-        if (current.getLevel(holder) >= minLevel) {
-            return;
-        }
-        ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(current);
-        mutable.set(holder, minLevel);
-        stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
-    }
-
     /** 全部内置附魔项是否已达内置下限（纯组件判断，不触碰注册表）。 */
     private static boolean hasAllBuiltinEnchantments(ItemEnchantments enchantments) {
-        return hasEnchantmentAtLeast(enchantments, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL);
-    }
-
-    private static boolean hasEnchantmentAtLeast(ItemEnchantments enchantments, ResourceKey<Enchantment> key, int minLevel) {
-        for (Holder<Enchantment> holder : enchantments.keySet()) {
-            if (holder.unwrapKey().map(key::equals).orElse(false)) {
-                return enchantments.getLevel(holder) >= minLevel;
-            }
-        }
-        return false;
+        return BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL);
     }
 
     @Override

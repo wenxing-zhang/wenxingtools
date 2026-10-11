@@ -21,10 +21,6 @@ public final class ArmorAttributeUncap {
 
     private ArmorAttributeUncap() {}
 
-    public static boolean isApplied() {
-        return applied;
-    }
-
     public static void apply() {
         boolean armorOk = raiseMax(Attributes.ARMOR, "generic.armor");
         boolean toughnessOk = raiseMax(Attributes.ARMOR_TOUGHNESS, "generic.armor_toughness");

@@ -143,9 +143,6 @@ public abstract class AnvilMenuFinalizerMixin {
         for (var entry : current.entrySet()) {
             outputEnchants.put(entry.getKey(), entry.getIntValue());
         }
-        // 用于判断「合并前后是否无变化」
-        Map<Holder<Enchantment>, Integer> beforeEnchants = new HashMap<>(outputEnchants);
-
         boolean anyChange = false;
         for (Map.Entry<Holder<Enchantment>, Integer> bookEntry : bookEnchants.entrySet()) {
             Holder<Enchantment> ench = bookEntry.getKey();
@@ -169,23 +166,8 @@ public abstract class AnvilMenuFinalizerMixin {
             return;
         }
 
-        boolean hasAnyValid = false;
-        for (Map.Entry<Holder<Enchantment>, Integer> e : outputEnchants.entrySet()) {
-            if (e.getValue() > 0) {
-                hasAnyValid = true;
-                break;
-            }
-        }
-        if (!hasAnyValid) {
-            return;
-        }
-
-        // 与合并前完全一致时也不再写入（防御）
-        if (beforeEnchants.equals(outputEnchants) && existingResult.isEmpty()
-                && enchantmentsEqual(leftStack, outputEnchants)) {
-            return;
-        }
-
+        // 到达此处 anyChange==true，outputEnchants 至少含一个 >0 项，且与合并前必有差异——
+        // 原有的 hasAnyValid / 「与合并前一致」两道判断恒真/恒假，已移除。
         ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
         for (Map.Entry<Holder<Enchantment>, Integer> e : outputEnchants.entrySet()) {
             if (e.getValue() > 0) {
@@ -210,17 +192,6 @@ public abstract class AnvilMenuFinalizerMixin {
             return;
         }
         output.set(DataComponents.CUSTOM_NAME, Component.literal(name));
-    }
-
-    private static boolean enchantmentsEqual(ItemStack stack, Map<Holder<Enchantment>, Integer> map) {
-        ItemEnchantments ench = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
-        Map<Holder<Enchantment>, Integer> stackMap = new HashMap<>();
-        for (var entry : ench.entrySet()) {
-            if (entry.getIntValue() > 0) {
-                stackMap.put(entry.getKey(), entry.getIntValue());
-            }
-        }
-        return stackMap.equals(map);
     }
 
     /**

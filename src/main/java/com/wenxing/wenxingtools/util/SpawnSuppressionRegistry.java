@@ -38,8 +38,11 @@ public final class SpawnSuppressionRegistry {
                 }
             }
             state.torches.updateAndGet(current -> current > 0 ? current - 1 : 0);
+            // 全局计数与维度状态配对扣减：若该维度已被 clearDimension 清理（state 为 null），
+            // 残留火把的全局配额已在卸载时扣过，此处不得再扣——否则全局计数可能跌到 0，
+            // 使 isSuppressed 的快速路径对所有维度返回 false，其它维度的火把抑制静默失效。
+            TORCH_COUNT.updateAndGet(current -> current > 0 ? current - 1 : 0);
         }
-        TORCH_COUNT.updateAndGet(current -> current > 0 ? current - 1 : 0);
     }
 
     public static boolean isSuppressed(ServerLevel level, double x, double z) {

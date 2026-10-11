@@ -88,9 +88,9 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
             return;
         }
         EnchantUtil.resolveHolder(ModEnchantments.LIFE_AMPLIFICATION, player)
-                .ifPresent(holder -> raiseEnchantment(stack, holder, BUILTIN_LIFE_AMPLIFICATION_LEVEL));
+                .ifPresent(holder -> BuiltinEnchantmentSupport.raiseAtLeast(stack, holder, BUILTIN_LIFE_AMPLIFICATION_LEVEL));
         EnchantUtil.resolveHolder(ModEnchantments.POTION_AMPLIFICATION, player)
-                .ifPresent(holder -> raiseEnchantment(stack, holder, BUILTIN_POTION_AMPLIFICATION_LEVEL));
+                .ifPresent(holder -> BuiltinEnchantmentSupport.raiseAtLeast(stack, holder, BUILTIN_POTION_AMPLIFICATION_LEVEL));
 
         HolderLookup.RegistryLookup<Enchantment> lookup = player.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
         raiseVanillaEnchantment(stack, lookup, Enchantments.PROTECTION, BUILTIN_PROTECTION_LEVEL);
@@ -104,40 +104,20 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
 
     private static void raiseVanillaEnchantment(ItemStack stack, HolderLookup.RegistryLookup<Enchantment> lookup,
                                                 ResourceKey<Enchantment> key, int minLevel) {
-        lookup.get(key).ifPresent(holder -> raiseEnchantment(stack, holder, minLevel));
-    }
-
-    /** 内置附魔下限写入：仅当现有等级低于下限才写回，避免覆盖铁砧/指令提升的更高等级。 */
-    private static void raiseEnchantment(ItemStack stack, Holder<Enchantment> holder, int minLevel) {
-        ItemEnchantments current = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
-        if (current.getLevel(holder) >= minLevel) {
-            return;
-        }
-        ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(current);
-        mutable.set(holder, minLevel);
-        stack.set(DataComponents.ENCHANTMENTS, mutable.toImmutable());
+        lookup.get(key).ifPresent(holder -> BuiltinEnchantmentSupport.raiseAtLeast(stack, holder, minLevel));
     }
 
     /** 全部内置附魔项是否已达内置下限（纯组件判断，不触碰注册表）。 */
     private static boolean hasAllBuiltinEnchantments(ItemEnchantments enchantments) {
-        return hasEnchantmentAtLeast(enchantments, ModEnchantments.LIFE_AMPLIFICATION, BUILTIN_LIFE_AMPLIFICATION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, ModEnchantments.POTION_AMPLIFICATION, BUILTIN_POTION_AMPLIFICATION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.PROTECTION, BUILTIN_PROTECTION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.UNBREAKING, BUILTIN_UNBREAKING_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.MENDING, BUILTIN_MENDING_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.THORNS, BUILTIN_THORNS_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.BLAST_PROTECTION, BUILTIN_BLAST_PROTECTION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.FIRE_PROTECTION, BUILTIN_FIRE_PROTECTION_LEVEL)
-                && hasEnchantmentAtLeast(enchantments, Enchantments.PROJECTILE_PROTECTION, BUILTIN_PROJECTILE_PROTECTION_LEVEL);
-    }
-
-    private static boolean hasEnchantmentAtLeast(ItemEnchantments enchantments, ResourceKey<Enchantment> key, int minLevel) {
-        for (Holder<Enchantment> holder : enchantments.keySet()) {
-            if (holder.unwrapKey().map(key::equals).orElse(false)) {
-                return enchantments.getLevel(holder) >= minLevel;
-            }
-        }
-        return false;
+        return BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.LIFE_AMPLIFICATION, BUILTIN_LIFE_AMPLIFICATION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.POTION_AMPLIFICATION, BUILTIN_POTION_AMPLIFICATION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.PROTECTION, BUILTIN_PROTECTION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.UNBREAKING, BUILTIN_UNBREAKING_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.MENDING, BUILTIN_MENDING_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.THORNS, BUILTIN_THORNS_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.BLAST_PROTECTION, BUILTIN_BLAST_PROTECTION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.FIRE_PROTECTION, BUILTIN_FIRE_PROTECTION_LEVEL)
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, Enchantments.PROJECTILE_PROTECTION, BUILTIN_PROJECTILE_PROTECTION_LEVEL);
     }
 
     @Override

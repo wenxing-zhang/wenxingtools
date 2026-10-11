@@ -38,10 +38,13 @@ public final class PotionAmplificationHandler {
     private static final long POTION_AMPLIFICATION_HOUR_TICKS = 72000L;
     private static final int POTION_AMPLIFICATION_SAFE_DURATION_CAP = 48 * 72_000;
     private static final Map<UUID, EnumMap<EquipmentSlot, ItemStack>> POTION_AMP_LAST_EQUIPPED = new ConcurrentHashMap<>();
+    /** 是否有任一护甲槽带药水增幅（供每 tick 清理短路；装备变化时刷新）。 */
+    private static final Map<UUID, Boolean> POTION_AMP_PRESENT = new ConcurrentHashMap<>();
 
     public static void clearPotionAmplificationPlayerState(UUID playerId) {
         if (playerId != null) {
             POTION_AMP_LAST_EQUIPPED.remove(playerId);
+            POTION_AMP_PRESENT.remove(playerId);
         }
     }
 
@@ -74,6 +77,8 @@ public final class PotionAmplificationHandler {
             }
             rememberPotionAmpArmor(player, slot, worn ? to : ItemStack.EMPTY);
         });
+        // 护甲变化即刷新「是否有药水增幅」缓存，供每 tick 清理短路（行为与每 tick 全量扫描一致）
+        POTION_AMP_PRESENT.put(player.getUUID(), getMaxPotionAmplificationLevelOnArmor(player) > 0);
     }
 
     @SubscribeEvent
@@ -86,7 +91,13 @@ public final class PotionAmplificationHandler {
     }
 
     private static void cleanseHarmfulEffects(Player player) {
-        if (getMaxPotionAmplificationLevelOnArmor(player) <= 0) {
+        Boolean present = POTION_AMP_PRESENT.get(player.getUUID());
+        if (present == null) {
+            // 缓存缺失（登录后首次 / 未经装备事件）：实时计算并缓存
+            present = getMaxPotionAmplificationLevelOnArmor(player) > 0;
+            POTION_AMP_PRESENT.put(player.getUUID(), present);
+        }
+        if (!present) {
             return;
         }
         List<Holder<MobEffect>> harmful = null;

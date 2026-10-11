@@ -49,6 +49,9 @@ public final class SoftModCompat {
     private static volatile Boolean curiosReady;
     private static volatile Method getCuriosHelper;
     private static volatile Method findFirstCurioItem;
+    /** 注册表在模组加载后冻结：物品/属性解析结果恒定，缓存非空值避免每秒重复解析。 */
+    private static final java.util.Map<String, Item> ITEM_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, Holder<Attribute>> ATTR_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
     private SoftModCompat() {
     }
@@ -62,9 +65,17 @@ public final class SoftModCompat {
     }
 
     public static Item itemOrNull(String id) {
+        Item cached = ITEM_CACHE.get(id);
+        if (cached != null) {
+            return cached;
+        }
         try {
             ResourceLocation rl = ResourceLocation.parse(id);
-            return BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
+            Item item = BuiltInRegistries.ITEM.getOptional(rl).orElse(null);
+            if (item != null) {
+                ITEM_CACHE.put(id, item);
+            }
+            return item;
         } catch (Throwable t) {
             return null;
         }
@@ -204,9 +215,17 @@ public final class SoftModCompat {
     // ----------------------------------------------------------
 
     private static Holder<Attribute> attrHolder(String id) {
+        Holder<Attribute> cached = ATTR_CACHE.get(id);
+        if (cached != null) {
+            return cached;
+        }
         try {
             ResourceLocation rl = ResourceLocation.parse(id);
-            return BuiltInRegistries.ATTRIBUTE.getHolder(rl).orElse(null);
+            Holder<Attribute> holder = BuiltInRegistries.ATTRIBUTE.getHolder(rl).orElse(null);
+            if (holder != null) {
+                ATTR_CACHE.put(id, holder);
+            }
+            return holder;
         } catch (Throwable t) {
             return null;
         }

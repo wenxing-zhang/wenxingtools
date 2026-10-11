@@ -32,6 +32,11 @@ public class WenxingTorchBlock extends TorchBlock implements EntityBlock {
 
     @Override
     public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        emitTorchParticles(level, pos);
+    }
+
+    /** 站立/墙面火把共用的粒子自绘（外观对齐 Forge 1.20.1）。 */
+    static void emitTorchParticles(Level level, BlockPos pos) {
         double x = pos.getX() + 0.5;
         double y = pos.getY() + 0.7;
         double z = pos.getZ() + 0.5;

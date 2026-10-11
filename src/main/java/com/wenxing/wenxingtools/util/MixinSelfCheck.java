@@ -34,7 +34,6 @@ public final class MixinSelfCheck {
     private static volatile boolean multiStackMergeGuardEnabled = true;
     /** 护甲减伤上限扩展（CombatRulesMixin） */
     private static volatile boolean uncappedArmorEnabled = true;
-    private static volatile boolean anyFailure = false;
 
     public static boolean isFixedMiningEnabled() {
         return fixedMiningEnabled;
@@ -70,10 +69,6 @@ public final class MixinSelfCheck {
 
     public static boolean isUncappedArmorEnabled() {
         return uncappedArmorEnabled;
-    }
-
-    public static boolean hasFailures() {
-        return anyFailure;
     }
 
     public static void run() {
@@ -176,7 +171,6 @@ public final class MixinSelfCheck {
             missing++;
         }
 
-        anyFailure = missing > 0;
         if (missing == 0) {
             WenXingTools.LOGGER.info("[wenxingtools] mixin self-check OK: all injection targets present");
         } else {
@@ -237,41 +231,31 @@ public final class MixinSelfCheck {
     }
 
     private static int checkStaticFullname() {
-        try {
-            Method method = Enchantment.class.getDeclaredMethod(
-                    "getFullname",
-                    net.minecraft.core.Holder.class, int.class);
-            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
-                WenXingTools.LOGGER.warn(
-                        "[wenxingtools] Enchantment.getFullname is not static; EnchantmentMixin must use static callback");
-                return 1;
-            }
-            return 0;
-        } catch (NoSuchMethodException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: Enchantment.getFullname ({})", e.toString());
-            return 1;
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: Enchantment.getFullname ({})", t.toString());
-            return 1;
-        }
+        return checkStaticMethod("Enchantment.getFullname",
+                "Enchantment.getFullname is not static; EnchantmentMixin must use static callback",
+                "getFullname", net.minecraft.core.Holder.class, int.class);
     }
 
     private static int checkStaticAreCompatible() {
+        return checkStaticMethod("Enchantment.areCompatible",
+                "Enchantment.areCompatible is not static; AnvilMenuMixin redirect handler must match",
+                "areCompatible", net.minecraft.core.Holder.class, net.minecraft.core.Holder.class);
+    }
+
+    /** 校验目标方法存在且为 static（附魔全名/互斥判定在 1.21 均为 static，实例回调会启动崩溃）。 */
+    private static int checkStaticMethod(String label, String notStaticMessage, String name, Class<?>... params) {
         try {
-            Method method = Enchantment.class.getDeclaredMethod(
-                    "areCompatible",
-                    net.minecraft.core.Holder.class, net.minecraft.core.Holder.class);
+            Method method = Enchantment.class.getDeclaredMethod(name, params);
             if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
-                WenXingTools.LOGGER.warn(
-                        "[wenxingtools] Enchantment.areCompatible is not static; AnvilMenuMixin redirect handler must match");
+                WenXingTools.LOGGER.warn("[wenxingtools] {}", notStaticMessage);
                 return 1;
             }
             return 0;
         } catch (NoSuchMethodException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: Enchantment.areCompatible ({})", e.toString());
+            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {} ({})", label, e.toString());
             return 1;
         } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: Enchantment.areCompatible ({})", t.toString());
+            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
             return 1;
         }
     }

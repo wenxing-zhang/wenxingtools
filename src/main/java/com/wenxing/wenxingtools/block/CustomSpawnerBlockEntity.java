@@ -66,12 +66,6 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
         if (entityTypeKey == null) { return null; } return BuiltInRegistries.ENTITY_TYPE.getOptional(entityTypeKey).orElse(null);
     }
 
-    public boolean isPowered() {
-        BlockState state = getBlockState();
-        return state.hasProperty(CustomSpawnerBlock.POWERED)
-                && state.getValue(CustomSpawnerBlock.POWERED);
-    }
-
     @Override
     protected void saveAdditional(CompoundTag tag, net.minecraft.core.HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -180,7 +174,6 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
                 mob.discard();
             }
         }
-        setChanged();
     }
 
     @Nullable

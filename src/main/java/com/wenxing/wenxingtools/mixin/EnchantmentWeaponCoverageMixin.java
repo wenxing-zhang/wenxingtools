@@ -21,19 +21,16 @@ public abstract class EnchantmentWeaponCoverageMixin {
 
     @Inject(method = "isSupportedItem", at = @At("RETURN"), cancellable = true, require = 0)
     private void wenxingtools$expandSupportedItem(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        if (!MixinSelfCheck.isWeaponCoverageExpandEnabled()) {
-            return;
-        }
-        if (Boolean.TRUE.equals(cir.getReturnValue())) {
-            return;
-        }
-        if (ExpandedEnchantCoverage.allowsSpawnEggHarvest((Enchantment) (Object) this, stack)) {
-            cir.setReturnValue(true);
-        }
+        wenxingtools$expandIfAllowed(stack, cir);
     }
 
     @Inject(method = "canEnchant", at = @At("RETURN"), cancellable = true, require = 0)
     private void wenxingtools$expandCanEnchant(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
+        wenxingtools$expandIfAllowed(stack, cir);
+    }
+
+    /** 两处入口共用：开关关 / vanilla 已放行则不介入，否则按动态武器放行覆盖。 */
+    private void wenxingtools$expandIfAllowed(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
         if (!MixinSelfCheck.isWeaponCoverageExpandEnabled()) {
             return;
         }
