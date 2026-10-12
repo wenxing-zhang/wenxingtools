@@ -35,7 +35,8 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
 
     private static final String TAG_SPAWN_TYPE = "SpawnType";
     private static final String TAG_COOLDOWN = "Cooldown";
-    private static final String SPAWNER_MOB_TAG = WenXingTools.MODID + ":spawner_mob";
+    // 火把抑制层要据此放行本刷怪笼的产物，故对外可见
+    public static final String SPAWNER_MOB_TAG = WenXingTools.MODID + ":spawner_mob";
     private static final int GROUND_SEARCH_BELOW = 2;
     private static final int GROUND_SEARCH_ABOVE = 2;
 
