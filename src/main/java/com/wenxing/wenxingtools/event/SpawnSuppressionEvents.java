@@ -17,14 +17,13 @@ import java.util.Set;
 
 public class SpawnSuppressionEvents {
 
-    // 放行清单只收玩家主动放出的生物（刷怪蛋 / 发射器 / 桶 / 繁殖 / 指令）与既有实体的转化（治愈、变异）。
-    // 其余来源（自然、区块生成、原版刷怪笼、结构、巡逻、袭击、增援、骑手）仍属「刷怪」，一律禁止。
+    // 放行清单只收玩家主动放出的生物（刷怪蛋 / 发射器 / 桶 / 繁殖）与既有实体的转化（治愈、变异）。
+    // 其余来源（自然、区块生成、原版刷怪笼、结构、巡逻、袭击、增援、骑手、指令召唤）仍属「刷怪」，一律禁止。
     private static final Set<MobSpawnType> ALLOWED_SPAWN_TYPES = EnumSet.of(
             MobSpawnType.SPAWN_EGG,
             MobSpawnType.DISPENSER,
             MobSpawnType.BUCKET,
             MobSpawnType.BREEDING,
-            MobSpawnType.COMMAND,
             MobSpawnType.CONVERSION
     );
 
