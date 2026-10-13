@@ -175,14 +175,6 @@ public final class EffectPurgeSupport {
         return attributes;
     }
 
-    /** 供测试/调试：读取持续窗截止游戏刻，无标记返回 0。 */
-    public static long getSuppressUntil(LivingEntity entity) {
-        if (entity == null) {
-            return 0L;
-        }
-        return entity.getPersistentData().getLong(PURGE_UNTIL_TAG);
-    }
-
     /** 供软集成复制键名后删除（避免遍历时修改）。 */
     public static List<String> copyKeys(CompoundTag tag) {
         return List.copyOf(tag.getAllKeys());

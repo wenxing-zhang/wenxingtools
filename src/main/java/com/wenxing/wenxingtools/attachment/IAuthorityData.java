@@ -35,8 +35,6 @@ public interface IAuthorityData {
 
     void setKillAuraMode(int mode);
 
-    void copyFrom(IAuthorityData source);
-
     CompoundTag serializeNBT();
 
     void deserializeNBT(CompoundTag nbt);

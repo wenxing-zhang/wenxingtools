@@ -104,18 +104,6 @@ public class AuthorityData implements IAuthorityData {
     }
 
     @Override
-    public void copyFrom(IAuthorityData source) {
-        this.invincibleCharacteristic = source.isInvincibleCharacteristicOn();
-        this.lockedHealth = source.getLockedHealth();
-        this.resourceCharacteristic = source.isResourceCharacteristicOn();
-        this.resourceMultiplier = source.getResourceMultiplier();
-        this.freedomCharacteristic = source.isFreedomCharacteristicOn();
-        this.killAuraCharacteristic = source.isKillAuraCharacteristicOn();
-        this.killAuraMode = source.getKillAuraMode();
-        this.dirty = true;
-    }
-
-    @Override
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
         tag.putBoolean("invincibleCharacteristic", invincibleCharacteristic);

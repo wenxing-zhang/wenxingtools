@@ -16,7 +16,6 @@ public abstract class AnvilMenuMixin {
     @Redirect(
             method = "createResult",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;supportsEnchantment(Lnet/minecraft/core/Holder;)Z"),
-            expect = 0,
             require = 0
     )
     private boolean allowAnyEnchantmentBySupports(ItemStack stack, Holder<Enchantment> enchantment) {
@@ -26,7 +25,6 @@ public abstract class AnvilMenuMixin {
     @Redirect(
             method = "createResult",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/enchantment/Enchantment;isSupportedItem(Lnet/minecraft/world/item/ItemStack;)Z"),
-            expect = 0,
             require = 0
     )
     private boolean allowAnyEnchantmentBySupportedItem(Enchantment enchantment, ItemStack stack) {
@@ -36,7 +34,6 @@ public abstract class AnvilMenuMixin {
     @Redirect(
             method = "createResult",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/enchantment/Enchantment;canEnchant(Lnet/minecraft/world/item/ItemStack;)Z"),
-            expect = 0,
             require = 0
     )
     private boolean allowAnyEnchantment(Enchantment enchantment, ItemStack stack) {
@@ -46,7 +43,6 @@ public abstract class AnvilMenuMixin {
     @Redirect(
             method = "createResult",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/enchantment/Enchantment;areCompatible(Lnet/minecraft/core/Holder;Lnet/minecraft/core/Holder;)Z"),
-            expect = 0,
             require = 0
     )
     private static boolean allowIncompatibleEnchantmentsByAreCompatible(Holder<Enchantment> a, Holder<Enchantment> b) {
@@ -56,7 +52,6 @@ public abstract class AnvilMenuMixin {
     @Redirect(
             method = "createResult",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/enchantment/Enchantment;isCompatibleWith(Lnet/minecraft/world/item/enchantment/Enchantment;)Z"),
-            expect = 0,
             require = 0
     )
     private boolean allowIncompatibleEnchantments(Enchantment enchantment, Enchantment other) {
@@ -67,7 +62,6 @@ public abstract class AnvilMenuMixin {
     @ModifyConstant(
             method = "createResult",
             constant = @Constant(intValue = 40, ordinal = 2),
-            expect = 0,
             require = 0
     )
     private int removeTooExpensiveLimit(int original) {

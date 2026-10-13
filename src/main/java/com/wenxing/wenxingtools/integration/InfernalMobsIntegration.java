@@ -80,26 +80,6 @@ public final class InfernalMobsIntegration {
         }
     }
 
-    public static boolean isPresent() {
-        return ensureReady();
-    }
-
-    /** 目标是否带有 Infernal 词缀数据（含血量膨胀标记）；不触发剥离。 */
-    public static boolean hasInfernalData(LivingEntity target) {
-        if (target == null) {
-            return false;
-        }
-        CompoundTag data = target.getPersistentData();
-        if (data.contains(NBT_MAX_HEALTH)) {
-            return true;
-        }
-        if (!data.contains(NBT_MOD)) {
-            return false;
-        }
-        String mod = data.getString(NBT_MOD);
-        return !mod.isEmpty() && !NBT_NOT_INFERNAL.equals(mod);
-    }
-
     /**
      * 剥离 Infernal 精英：摘运行时缓存 + NBT 置 notInfernal 阻断再生 + 还原血量膨胀。
      */

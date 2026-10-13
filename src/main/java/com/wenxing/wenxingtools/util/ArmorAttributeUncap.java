@@ -17,14 +17,13 @@ import java.lang.reflect.Field;
  */
 public final class ArmorAttributeUncap {
     private static final double TARGET_MAX = 10000.0D;
-    private static volatile boolean applied = false;
 
     private ArmorAttributeUncap() {}
 
     public static void apply() {
         boolean armorOk = raiseMax(Attributes.ARMOR, "generic.armor");
         boolean toughnessOk = raiseMax(Attributes.ARMOR_TOUGHNESS, "generic.armor_toughness");
-        applied = armorOk && toughnessOk;
+        boolean applied = armorOk && toughnessOk;
         if (applied) {
             WenXingTools.LOGGER.info("[wenxingtools] armor attribute cap raised to {}", TARGET_MAX);
         } else {

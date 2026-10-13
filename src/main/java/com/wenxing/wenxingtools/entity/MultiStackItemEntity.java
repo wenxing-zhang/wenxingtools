@@ -58,10 +58,6 @@ public class MultiStackItemEntity extends ItemEntity {
         refreshDisplay();
     }
 
-    public List<ItemStack> getStacks() {
-        return stacks;
-    }
-
     /** 将一条外部堆叠并入本实体（按物品+组件累计，再按最大堆叠拆条）。 */
     public void mergeStack(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
@@ -128,15 +124,6 @@ public class MultiStackItemEntity extends ItemEntity {
             }
         }
         return total;
-    }
-
-    /**
-     * 对外完整数量：首键同款合计已写入 DATA_ITEM（refreshDisplay）。
-     * 第三方（磁铁/管道）读 getItem() 拿到增幅后总量；原地 shrink 由 tick 对账写回。
-     */
-    @Override
-    public ItemStack getItem() {
-        return super.getItem();
     }
 
     /** 磁铁/管道 setItem 写回 stacks */

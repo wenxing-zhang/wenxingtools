@@ -16,7 +16,6 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
@@ -162,7 +161,7 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
                 continue;
             }
 
-            Double groundY = findStandableY(level, x, z, mob);
+            Double groundY = findStandableY(level, x, z, pos.getY(), mob);
             if (groundY == null) {
                 mob.discard();
                 continue;
@@ -178,12 +177,11 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
     }
 
     @Nullable
-    private static Double findStandableY(ServerLevel level, double x, double z, Mob mob) {
+    private static Double findStandableY(ServerLevel level, double x, double z, int spawnerY, Mob mob) {
         int bx = (int) Math.floor(x);
         int bz = (int) Math.floor(z);
-        int ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
         for (int dy = GROUND_SEARCH_ABOVE; dy >= -GROUND_SEARCH_BELOW; dy--) {
-            int y = ground + dy;
+            int y = spawnerY + dy;
             BlockPos feet = new BlockPos(bx, y, bz);
             if (!level.isInWorldBounds(feet) || !level.isLoaded(feet)) {
                 continue;
