@@ -5,16 +5,21 @@
       "modid": "tiab"
     }
   ],
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "ingredients": [
-    {
+  "pattern": [
+    "   ",
+    "S#S",
+    "   "
+  ],
+  "key": {
+    "S": {
       "item": "minecraft:stick"
     },
-    {
-      "item": "minecraft:stick"
+    "#": {
+      "tag": "minecraft:logs"
     }
-  ],
+  },
   "result": {
     "id": "tiab:time_in_a_bottle",
     "count": 1

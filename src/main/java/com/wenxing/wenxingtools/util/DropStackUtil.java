@@ -130,11 +130,14 @@ public final class DropStackUtil {
         if (drops == null || totals == null) {
             return;
         }
-        drops.clear();
+        // 先构造合并实体再替换：构造抛异常时原掉落仍在列表里，不会被整段吞掉
         List<ItemStack> stacks = totalsToStacks(totals);
         if (stacks.isEmpty()) {
+            drops.clear();
             return;
         }
-        drops.add(MultiStackItemEntity.fromStacks(level, x, y, z, stacks));
+        MultiStackItemEntity merged = MultiStackItemEntity.fromStacks(level, x, y, z, stacks);
+        drops.clear();
+        drops.add(merged);
     }
 }
