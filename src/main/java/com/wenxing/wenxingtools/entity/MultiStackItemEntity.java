@@ -1,5 +1,6 @@
 package com.wenxing.wenxingtools.entity;
 
+import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -24,6 +25,9 @@ public class MultiStackItemEntity extends ItemEntity {
 
     private static final String TAG_STACKS = "WTStacks";
     private static final String TAG_COUNT = "WTCount";
+
+    // 反序列化/合并的条目上限：挡住构造 NBT（如 WTCount=2000000000）经 splitInto 无界展开导致的 OOM
+    private static final int MAX_STORED_ENTRIES = 4096;
 
     private final List<ItemStack> stacks = new ArrayList<>();
     /** refreshDisplay/写 DATA_ITEM 时置位，防止 setItem 写回时覆盖 stacks */
@@ -89,15 +93,27 @@ public class MultiStackItemEntity extends ItemEntity {
     }
 
     private static void splitInto(List<ItemStack> out, ItemStack stack) {
+        if (!splitInto(out, stack, MAX_STORED_ENTRIES - out.size())) {
+            WenXingTools.LOGGER.warn("[multi_stack_item] entry budget exhausted, discarded remaining {}", stack.getItem());
+        }
+    }
+
+    private static boolean splitInto(List<ItemStack> out, ItemStack stack, int budget) {
+        if (budget <= 0) {
+            return false;
+        }
         int max = Math.max(1, stack.getMaxStackSize());
         int remaining = stack.getCount();
-        while (remaining > 0) {
+        int added = 0;
+        while (remaining > 0 && added < budget) {
             int chunk = Math.min(remaining, max);
             ItemStack piece = stack.copy();
             piece.setCount(chunk);
             out.add(piece);
             remaining -= chunk;
+            added++;
         }
+        return remaining <= 0;
     }
 
     private static boolean isSameKind(ItemStack a, ItemStack b) {
