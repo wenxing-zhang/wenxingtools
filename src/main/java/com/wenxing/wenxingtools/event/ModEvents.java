@@ -186,7 +186,7 @@ public class ModEvents {
             if (!(player instanceof ServerPlayer sp)) return;
             IAuthorityData data = AuthorityDataProvider.getData(sp);
             if (data == null) return;
-            if (!PermissionUtil.isResourceCharacteristicActiveOrRevoke(sp, data, PermissionUtil.hasPermission(sp))) return;
+            if (!PermissionUtil.isResourceCharacteristicActiveOrRevoke(sp, data)) return;
             int itemMultiplier = data.getResourceMultiplier();
             if (itemMultiplier <= 0) return;
 

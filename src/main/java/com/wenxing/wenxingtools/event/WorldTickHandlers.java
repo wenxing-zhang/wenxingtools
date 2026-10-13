@@ -57,8 +57,7 @@ public final class WorldTickHandlers {
                 if (!data.isKillAuraCharacteristicOn()) {
                     continue;
                 }
-                boolean hasPermission = PermissionUtil.hasPermission(player);
-                if (PermissionUtil.isKillAuraCharacteristicActiveOrRevoke(player, data, hasPermission)) {
+                if (PermissionUtil.isKillAuraCharacteristicActiveOrRevoke(player, data)) {
                     runKillAuraForPlayer(server, level, player, data.getKillAuraMode());
                 }
             }

@@ -19,38 +19,39 @@ public final class PermissionUtil {
         return false;
     }
 
-    public static boolean isInvincibleCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        return isActiveOrRevoke(player, data, hasPermission,
+    public static boolean isInvincibleCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data) {
+        return isActiveOrRevoke(player, data,
                 IAuthorityData::isInvincibleCharacteristicOn,
                 IAuthorityData::setInvincibleCharacteristic);
     }
 
-    public static boolean isResourceCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        return isActiveOrRevoke(player, data, hasPermission,
+    public static boolean isResourceCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data) {
+        return isActiveOrRevoke(player, data,
                 IAuthorityData::isResourceCharacteristicOn,
                 IAuthorityData::setResourceCharacteristic);
     }
 
-    public static boolean isFreedomCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        return isActiveOrRevoke(player, data, hasPermission,
+    public static boolean isFreedomCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data) {
+        return isActiveOrRevoke(player, data,
                 IAuthorityData::isFreedomCharacteristicOn,
                 IAuthorityData::setFreedomCharacteristic);
     }
 
-    public static boolean isKillAuraCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission) {
-        return isActiveOrRevoke(player, data, hasPermission,
+    public static boolean isKillAuraCharacteristicActiveOrRevoke(ServerPlayer player, IAuthorityData data) {
+        return isActiveOrRevoke(player, data,
                 IAuthorityData::isKillAuraCharacteristicOn,
                 IAuthorityData::setKillAuraCharacteristic);
     }
 
     // 四个特性共用的「开启且有权则放行，开着但失权则关掉并推同步」判定。
+    // 权限查询放在开关判定之后惰性执行：特性关闭（绝大多数调用）时不再白付一次 hasPermission。
     // 方法引用均无捕获，无额外分配。
-    private static boolean isActiveOrRevoke(ServerPlayer player, IAuthorityData data, boolean hasPermission,
+    private static boolean isActiveOrRevoke(ServerPlayer player, IAuthorityData data,
                                             Predicate<IAuthorityData> isOn,
                                             CharacteristicFlagSetter setOff) {
         if (player == null || data == null) return false;
         if (!isOn.test(data)) return false;
-        if (!hasPermission) {
+        if (!hasPermission(player)) {
             setOff.set(data, false);
             syncAfterRevoke(player);
             return false;

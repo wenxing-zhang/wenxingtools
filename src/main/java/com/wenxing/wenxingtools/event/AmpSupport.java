@@ -85,10 +85,6 @@ public final class AmpSupport {
             return;
         }
 
-        int totalAttackLevel = getTotalEnchantmentLevelAllSlots(player, ModEnchantments.ATTACK_AMPLIFICATION.get());
-        player.getPersistentData().putInt(AmpConstants.ATTACK_AMPLIFICATION_LEVEL_TAG, totalAttackLevel);
-
-
         int totalLifeLevel = getTotalEnchantmentLevelOnArmor(player, ModEnchantments.LIFE_AMPLIFICATION.get());
         LifeAmplificationEvents.syncLifeAmplification(player, totalLifeLevel);
     }
@@ -169,7 +165,6 @@ public final class AmpSupport {
             return 0;
         }
         int live = getTotalEnchantmentLevelAllSlots(player, ModEnchantments.ATTACK_AMPLIFICATION.get());
-        player.getPersistentData().putInt(AmpConstants.ATTACK_AMPLIFICATION_LEVEL_TAG, live);
         return live;
     }
 

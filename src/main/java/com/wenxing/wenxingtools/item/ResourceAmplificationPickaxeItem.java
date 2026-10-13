@@ -111,11 +111,11 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
         }
         CompoundTag tag = stack.getTag();
         boolean flagged = tag != null && tag.getBoolean(BUILTIN_FLAG);
-        int hasResource = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.RESOURCE_AMPLIFICATION.get(), stack);
-        int hasAttack = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.ATTACK_AMPLIFICATION.get(), stack);
-        int hasHarvest = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.SPAWN_EGG_HARVEST.get(), stack);
-        if (flagged && hasResource == BUILTIN_RESOURCE_AMPLIFICATION_LEVEL && hasAttack == BUILTIN_ATTACK_AMPLIFICATION_LEVEL
-                && hasHarvest == BUILTIN_SPAWN_EGG_HARVEST_LEVEL) {
+        Map<Enchantment, Integer> enchants = EnchantmentHelper.getEnchantments(stack);
+        if (flagged
+                && enchants.getOrDefault(ModEnchantments.RESOURCE_AMPLIFICATION.get(), 0) == BUILTIN_RESOURCE_AMPLIFICATION_LEVEL
+                && enchants.getOrDefault(ModEnchantments.ATTACK_AMPLIFICATION.get(), 0) == BUILTIN_ATTACK_AMPLIFICATION_LEVEL
+                && enchants.getOrDefault(ModEnchantments.SPAWN_EGG_HARVEST.get(), 0) == BUILTIN_SPAWN_EGG_HARVEST_LEVEL) {
             return;
         }
         applyBuiltinEnchantments(stack);

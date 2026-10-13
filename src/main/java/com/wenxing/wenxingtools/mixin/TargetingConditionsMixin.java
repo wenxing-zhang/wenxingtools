@@ -33,7 +33,7 @@ public abstract class TargetingConditionsMixin {
         if (data == null) {
             return;
         }
-        if (PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(player, data, PermissionUtil.hasPermission(player))) {
+        if (PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(player, data)) {
             cir.setReturnValue(false);
         }
     }

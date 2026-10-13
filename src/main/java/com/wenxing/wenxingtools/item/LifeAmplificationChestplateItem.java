@@ -118,21 +118,19 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
         }
         CompoundTag tag = stack.getTag();
         boolean flagged = tag != null && tag.getBoolean(BUILTIN_FLAG);
-        int protection = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.ALL_DAMAGE_PROTECTION, stack);
-        int life = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.LIFE_AMPLIFICATION.get(), stack);
-        int potion = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.POTION_AMPLIFICATION.get(), stack);
+        Map<Enchantment, Integer> enchants = EnchantmentHelper.getEnchantments(stack);
         if (flagged
-                && !hasCurse(stack)
-                && protection == BUILTIN_PROTECTION_LEVEL
-                && life == BUILTIN_LIFE_AMPLIFICATION_LEVEL
-                && potion == BUILTIN_POTION_AMPLIFICATION_LEVEL) {
+                && !hasCurse(enchants)
+                && enchants.getOrDefault(Enchantments.ALL_DAMAGE_PROTECTION, 0) == BUILTIN_PROTECTION_LEVEL
+                && enchants.getOrDefault(ModEnchantments.LIFE_AMPLIFICATION.get(), 0) == BUILTIN_LIFE_AMPLIFICATION_LEVEL
+                && enchants.getOrDefault(ModEnchantments.POTION_AMPLIFICATION.get(), 0) == BUILTIN_POTION_AMPLIFICATION_LEVEL) {
             return;
         }
         applyBuiltinEnchantments(stack);
     }
 
-    private static boolean hasCurse(ItemStack stack) {
-        for (Enchantment enchantment : EnchantmentHelper.getEnchantments(stack).keySet()) {
+    private static boolean hasCurse(Map<Enchantment, Integer> enchants) {
+        for (Enchantment enchantment : enchants.keySet()) {
             if (enchantment.isCurse()) {
                 return true;
             }

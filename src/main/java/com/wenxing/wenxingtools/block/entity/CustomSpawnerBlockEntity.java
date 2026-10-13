@@ -196,7 +196,6 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
                     MobSpawnType.SPAWNER, null, null);
 
             mob.setNoAi(true);
-            mob.setNoGravity(false);
             mob.setPersistenceRequired();
             mob.getPersistentData().putBoolean(SPAWNER_MOB_TAG, true);
             if (!level.noCollision(mob) || !level.isUnobstructed(mob)) {

@@ -33,7 +33,7 @@ public final class CharacteristicTickHandler {
         if (data == null) {
             return;
         }
-        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(player, data, PermissionUtil.hasPermission(player))) {
+        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(player, data)) {
             player.getAbilities().mayfly = true;
             player.onUpdateAbilities();
             LAST_MAYFLY_STATE.put(pid, true);
@@ -77,11 +77,7 @@ public final class CharacteristicTickHandler {
         }
 
 
-        boolean hasPermission = (invincibleOn || freedomOn)
-                ? PermissionUtil.hasPermission(sPlayer)
-                : false;
-
-        boolean invincibleActive = PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(sPlayer, data, hasPermission);
+        boolean invincibleActive = PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(sPlayer, data);
         if (invincibleActive) {
             player.invulnerableTime = 20;
             if (!player.getAbilities().invulnerable) {
@@ -99,7 +95,7 @@ public final class CharacteristicTickHandler {
             }
         }
 
-        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(sPlayer, data, hasPermission)) {
+        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(sPlayer, data)) {
             boolean desired = true;
             UUID pid = player.getUUID();
             Boolean last = LAST_MAYFLY_STATE.get(pid);

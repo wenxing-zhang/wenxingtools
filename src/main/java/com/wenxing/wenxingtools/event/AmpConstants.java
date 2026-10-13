@@ -54,9 +54,6 @@ public final class AmpConstants {
             EquipmentSlot.FEET
     };
 
-
-    static final String ATTACK_AMPLIFICATION_LEVEL_TAG = WenXingTools.MODID + ":attack_amp_level";
-
     private AmpConstants() {
     }
 }

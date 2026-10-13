@@ -22,7 +22,7 @@ public final class CombatCharacteristicHandlers {
     private static boolean invincibleFeatureActive(Player player) {
         if (!(player instanceof ServerPlayer sp)) return false;
         IAuthorityData data = AuthorityDataProvider.getData(sp);
-        return data != null && PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(sp, data, PermissionUtil.hasPermission(sp));
+        return data != null && PermissionUtil.isInvincibleCharacteristicActiveOrRevoke(sp, data);
     }
 
     private static void runAttackKillChain(Player attacker, LivingEntity target) {
