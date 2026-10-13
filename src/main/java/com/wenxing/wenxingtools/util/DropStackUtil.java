@@ -146,11 +146,13 @@ public final class DropStackUtil {
         if (drops == null || totals == null) {
             return;
         }
-        drops.clear();
         List<ItemStack> stacks = totalsToStacks(totals);
         if (stacks.isEmpty()) {
+            drops.clear();
             return;
         }
-        drops.add(MultiStackItemEntity.fromStacks(level, x, y, z, stacks));
+        MultiStackItemEntity merged = MultiStackItemEntity.fromStacks(level, x, y, z, stacks);
+        drops.clear();
+        drops.add(merged);
     }
 }

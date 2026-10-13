@@ -93,7 +93,7 @@ public class MultiStackItemEntity extends ItemEntity {
 
     private static void splitInto(List<ItemStack> out, ItemStack stack) {
         if (!splitInto(out, stack, MAX_STORED_ENTRIES - out.size())) {
-            WenXingTools.LOGGER.debug("[multi_stack_item] entry budget exhausted, discarded remaining {}", stack.getItem());
+            WenXingTools.LOGGER.warn("[multi_stack_item] entry budget exhausted, discarded remaining {}", stack.getItem());
         }
     }
 

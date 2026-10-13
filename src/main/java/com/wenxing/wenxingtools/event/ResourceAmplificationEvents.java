@@ -254,11 +254,16 @@ public final class ResourceAmplificationEvents {
             }
         }
 
+        // 先构造合并实体再替换：构造抛异常时原掉落仍在列表里，不会被整段吞掉
+        com.wenxing.wenxingtools.entity.MultiStackItemEntity merged = null;
+        if (!totals.isEmpty()) {
+            merged = com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
+                    level, x, y, z, com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals));
+        }
         event.getDrops().clear();
         event.getDrops().addAll(passthrough);
-        if (!totals.isEmpty()) {
-            event.getDrops().add(com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
-                    level, x, y, z, com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals)));
+        if (merged != null) {
+            event.getDrops().add(merged);
         }
     }
 
