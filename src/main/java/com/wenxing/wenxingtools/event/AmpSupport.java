@@ -45,7 +45,7 @@ public final class AmpSupport {
     }
 
     /**
-     * 按物品分层的资源增幅额外倍率：可堆叠物品 {@code level×100}，不可堆叠（{@code maxStackSize == 1}）{@code level×10}。
+     * 按物品分层的资源增幅额外倍率（**方块破坏路径**）：可堆叠物品 {@code level×100}，不可堆叠（{@code maxStackSize == 1}）{@code level×10}。
      * <p>
      * 不可堆叠物品若吃满 ×100，会在单个 MultiStack 实体里塞进上百个单件 ItemStack，NBT 与同步包体量失控，故单独降档。
      */
@@ -56,6 +56,23 @@ public final class AmpSupport {
         return level * (stack.getMaxStackSize() > 1
                 ? AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL
                 : AmpConstants.RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL);
+    }
+
+    /**
+     * 击杀掉落的整体倍率：一次击杀捕获到的全部产物复制 {@link AmpConstants#KILL_DROP_COPIES} 份，
+     * 每份再按物品是否可堆叠分层（可堆叠 {@code level×25}、不可堆叠 {@code level×5}），
+     * 合计 {@code level×100} / {@code level×20}。
+     * <p>
+     * 无增幅（{@code level<=0}）返回 1，让原版掉落原样通过——击杀路径的「必合并」不依赖增幅开关。
+     */
+    public static long computeKillDropMultiplier(int level, ItemStack stack) {
+        if (level <= 0 || stack == null || stack.isEmpty()) {
+            return 1L;
+        }
+        long perCopy = (long) level * (stack.getMaxStackSize() > 1
+                ? AmpConstants.KILL_FACTOR_STACKABLE_PER_COPY
+                : AmpConstants.KILL_FACTOR_UNSTACKABLE_PER_COPY);
+        return Math.min(perCopy * AmpConstants.KILL_DROP_COPIES, (long) Integer.MAX_VALUE);
     }
 
     public static Component buildResourceAmplificationToggleMessage(boolean newState, int displayLevel) {
