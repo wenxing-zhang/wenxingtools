@@ -20,6 +20,7 @@ public final class GoetySoulEnergyAmplification {
 
     private static Method getSoulChange;
     private static Method setSoulChange;
+    private static Method getEntityMethod;
 
     private GoetySoulEnergyAmplification() {
     }
@@ -55,6 +56,7 @@ public final class GoetySoulEnergyAmplification {
                         GAIN_EVENT_CLASS, false, GoetySoulEnergyAmplification.class.getClassLoader());
                 getSoulChange = eventClass.getMethod("getSoulChange");
                 setSoulChange = eventClass.getMethod("setSoulChange", int.class);
+                getEntityMethod = eventClass.getMethod("getEntity");
                 ready = Boolean.TRUE;
             } catch (Throwable t) {
                 ready = Boolean.FALSE;
@@ -93,7 +95,7 @@ public final class GoetySoulEnergyAmplification {
             if (!ensureReady()) {
                 return;
             }
-            Object playerObj = event.getClass().getMethod("getEntity").invoke(event);
+            Object playerObj = getEntityMethod.invoke(event);
             if (!(playerObj instanceof Player player) || player.level().isClientSide) {
                 return;
             }

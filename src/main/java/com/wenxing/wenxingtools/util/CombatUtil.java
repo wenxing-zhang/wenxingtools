@@ -330,7 +330,8 @@ public final class CombatUtil {
         }
 
         float maxHealth = getMaxHealth(player);
-        float health = player.getHealth();
+        float current = player.getHealth();
+        float health = current;
         if (Float.isNaN(health) || Float.isInfinite(health) || health <= 0.0f) {
             health = maxHealth;
         }
@@ -340,7 +341,10 @@ public final class CombatUtil {
         if (health < 0.0f) {
             health = 0.0f;
         }
-        player.setHealth(health);
+        // 值未变则跳过写入：每 tick 调用时省去同步数据写入（行为等价）
+        if (health != current) {
+            player.setHealth(health);
+        }
     }
 
     public static DamageSource createInfinityKillSource(ServerPlayer attacker) {

@@ -49,6 +49,29 @@ public final class SoftModCompat {
     private static volatile Boolean curiosReady;
     private static volatile Method getCuriosHelper;
     private static volatile Method findFirstCurioItem;
+    /** CuriosApi 类引用：兜底扫描复用，避免每次重复 Class.forName。 */
+    private static volatile Class<?> curiosApiClass;
+    /** Curios 运行时类的方法查找缓存（类加载后恒定）：避免每次扫描重复 getMethod。 */
+    private static final ClassValue<java.util.Map<String, Method>> METHOD_CACHE =
+            new ClassValue<>() {
+                @Override
+                protected java.util.Map<String, Method> computeValue(Class<?> type) {
+                    return new java.util.concurrent.ConcurrentHashMap<>();
+                }
+            };
+
+    private static Method methodOf(Class<?> type, String name, Class<?>... params) {
+        if (type == null) {
+            return null;
+        }
+        return METHOD_CACHE.get(type).computeIfAbsent(name + java.util.Arrays.toString(params), key -> {
+            try {
+                return type.getMethod(name, params);
+            } catch (Throwable t) {
+                return null;
+            }
+        });
+    }
     /** 注册表在模组加载后冻结：物品/属性解析结果恒定，缓存非空值避免每秒重复解析。 */
     private static final java.util.Map<String, Item> ITEM_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.Map<String, Holder<Attribute>> ATTR_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
@@ -100,10 +123,11 @@ public final class SoftModCompat {
             return;
         }
         try {
-            Class<?> curiosApiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
+            Class<?> apiClass = Class.forName("top.theillusivec4.curios.api.CuriosApi");
             Class<?> helperClass = Class.forName("top.theillusivec4.curios.api.ICuriosHelper");
-            getCuriosHelper = curiosApiClass.getMethod("getCuriosHelper");
+            getCuriosHelper = apiClass.getMethod("getCuriosHelper");
             findFirstCurioItem = helperClass.getMethod("findFirstCurio", LivingEntity.class, Item.class);
+            curiosApiClass = apiClass;
             curiosReady = true;
         } catch (Throwable t) {
             WenXingTools.LOGGER.debug("[compat] Curios findFirstCurio unavailable, scan-only: {}", t.toString());
@@ -136,13 +160,19 @@ public final class SoftModCompat {
     /** 兜底：遍历 Curios 格子，避免 findFirstCurio 不匹配或 API 变更时永远 false。 */
     private static boolean scanCuriosInventoryFor(LivingEntity entity, Item item) {
         try {
-            Class<?> curiosApi = Class.forName("top.theillusivec4.curios.api.CuriosApi");
-            Method getInv = curiosApi.getMethod("getCuriosInventory", LivingEntity.class);
+            Method getInv = methodOf(curiosApiClass, "getCuriosInventory", LivingEntity.class);
+            if (getInv == null) {
+                return false;
+            }
             Object handler = unwrapMaybeOptional(getInv.invoke(null, entity));
             if (handler == null) {
                 return false;
             }
-            Object curiosMap = handler.getClass().getMethod("getCurios").invoke(handler);
+            Method getCurios = methodOf(handler.getClass(), "getCurios");
+            if (getCurios == null) {
+                return false;
+            }
+            Object curiosMap = getCurios.invoke(handler);
             if (!(curiosMap instanceof java.util.Map<?, ?> map)) {
                 return false;
             }
@@ -150,9 +180,17 @@ public final class SoftModCompat {
                 if (stacksHandler == null) {
                     continue;
                 }
-                Object itemHandler = stacksHandler.getClass().getMethod("getStacks").invoke(stacksHandler);
-                int n = (Integer) itemHandler.getClass().getMethod("getSlots").invoke(itemHandler);
-                Method getStackInSlot = itemHandler.getClass().getMethod("getStackInSlot", int.class);
+                Method getStacks = methodOf(stacksHandler.getClass(), "getStacks");
+                if (getStacks == null) {
+                    continue;
+                }
+                Object itemHandler = getStacks.invoke(stacksHandler);
+                Method getSlots = methodOf(itemHandler.getClass(), "getSlots");
+                Method getStackInSlot = methodOf(itemHandler.getClass(), "getStackInSlot", int.class);
+                if (getSlots == null || getStackInSlot == null) {
+                    continue;
+                }
+                int n = (Integer) getSlots.invoke(itemHandler);
                 for (int i = 0; i < n; i++) {
                     Object stackObj = getStackInSlot.invoke(itemHandler, i);
                     if (stackObj instanceof ItemStack stack && !stack.isEmpty() && stack.is(item)) {
@@ -174,7 +212,11 @@ public final class SoftModCompat {
             return opt.orElse(null);
         }
         try {
-            Object resolved = raw.getClass().getMethod("resolve").invoke(raw);
+            Method resolve = methodOf(raw.getClass(), "resolve");
+            if (resolve == null) {
+                return raw;
+            }
+            Object resolved = resolve.invoke(raw);
             if (resolved instanceof Optional<?> opt) {
                 return opt.orElse(null);
             }
