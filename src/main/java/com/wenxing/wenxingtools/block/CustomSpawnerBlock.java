@@ -1,13 +1,16 @@
 package com.wenxing.wenxingtools.block;
 
 import com.mojang.serialization.MapCodec;
+import com.wenxing.wenxingtools.item.GenericSpawnEggItem;
 import com.wenxing.wenxingtools.item.ModBlocks;
+import com.wenxing.wenxingtools.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.SpawnEggItem;
@@ -26,7 +29,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 文星刷怪笼（行为对齐 Forge 1.20.1）：红石供电才工作；手持刷怪蛋右键改类型并消耗 1 个。
+ * 文星刷怪笼（行为对齐 Forge 1.20.1）：红石供电才工作；手持刷怪蛋或文星生物蛋右键改类型并消耗 1 个。
  */
 public class CustomSpawnerBlock extends BaseEntityBlock {
     public static final MapCodec<CustomSpawnerBlock> CODEC = simpleCodec(CustomSpawnerBlock::new);
@@ -56,7 +59,15 @@ public class CustomSpawnerBlock extends BaseEntityBlock {
             Player player,
             InteractionHand hand,
             BlockHitResult hitResult) {
-        if (!(stack.getItem() instanceof SpawnEggItem egg)) {
+        EntityType<?> entityType;
+        if (stack.getItem() instanceof SpawnEggItem egg) {
+            entityType = egg.getType(stack);
+        } else if (stack.is(ModItems.GENERIC_SPAWN_EGG.get())) {
+            entityType = GenericSpawnEggItem.getEntityType(stack);
+        } else {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        if (entityType == null) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide) {
@@ -65,7 +76,6 @@ public class CustomSpawnerBlock extends BaseEntityBlock {
         if (!(level.getBlockEntity(pos) instanceof CustomSpawnerBlockEntity spawner)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
-        var entityType = egg.getType(stack);
         spawner.setSpawnType(entityType);
         if (!player.getAbilities().instabuild) {
             stack.shrink(1);

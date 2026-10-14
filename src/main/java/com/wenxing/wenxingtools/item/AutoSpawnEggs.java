@@ -12,8 +12,8 @@ import java.util.Map;
 
 /**
  * 掠蛋用「生物 → 已注册刷怪蛋」查找（结果缓存）。
- * 与 Forge 1.20.1 规则对齐：只使用物品注册表中已存在的 SpawnEggItem（含神化捕捉等第三方蛋），
- * 无注册蛋则不掉落。不做命名启发式 / 实体组件猜测。
+ * 与 Forge 1.20.1 规则对齐：优先使用物品注册表中已存在的 SpawnEggItem（含神化捕捉等第三方蛋），
+ * 无注册蛋时由 {@link #resolveHarvestEggStack} 回退「文星生物蛋」。不做命名启发式 / 实体组件猜测。
  */
 public final class AutoSpawnEggs {
     private AutoSpawnEggs() {}
@@ -26,6 +26,15 @@ public final class AutoSpawnEggs {
             return null;
         }
         return eggIndex().get(type);
+    }
+
+    /** 掠蛋掉落物解析：有原生/已注册蛋用原生蛋，否则回退文星生物蛋（数据组件绑定实体 id）。 */
+    public static ItemStack resolveHarvestEggStack(EntityType<?> type) {
+        SpawnEggItem egg = getSpawnEggFor(type);
+        if (egg == null) {
+            return GenericSpawnEggItem.create(type, 1);
+        }
+        return new ItemStack(egg, 1);
     }
 
     private static Map<EntityType<?>, SpawnEggItem> eggIndex() {
