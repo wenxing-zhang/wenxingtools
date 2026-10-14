@@ -10,21 +10,14 @@ import com.wenxing.wenxingtools.util.DropStackUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.LootTable;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -32,13 +25,12 @@ import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * 资源增幅（行为对齐 Forge 1.20.1）：击杀掉落 / 经验 / 方块破坏。
- * 公式：掉落 ×(1+level×100)，额外 2 次战利品 roll，经验 ×level×10000（直接入账）。
+ * 公式：击杀掉落＝一次击杀捕获到的全部产物 ×4 份、每份 ×（可堆叠 level×25 / 不可堆叠 level×5）；经验 ×level×10000（直接入账）。
  */
 @EventBusSubscriber(modid = WenXingTools.MODID)
 public final class ResourceAmplificationHandler {
@@ -49,8 +41,12 @@ public final class ResourceAmplificationHandler {
     private static final int RESOURCE_AMPLIFICATION_SWITCH_COOLDOWN_MS = 250;
     private static final int RESOURCE_XP_CAP = 2000000000;
     private static final long RESOURCE_XP_MULTIPLIER = 100L;
-    /** 击杀时额外完整战利品表 roll 次数（对齐神化清道夫，次数固定为 2） */
-    private static final int EXTRA_LOOT_ROLLS = 2;
+    /** 击杀掉落复制份数：一次击杀的全部产物按「相当于击杀 4 个生物」计 */
+    private static final int KILL_DROP_COPIES = 4;
+    /** 击杀掉落每份的倍率系数：可堆叠物品每级 ×25（4 份合计 level×100） */
+    private static final int KILL_FACTOR_STACKABLE_PER_COPY = 25;
+    /** 击杀掉落每份的倍率系数：不可堆叠物品每级 ×5（4 份合计 level×20） */
+    private static final int KILL_FACTOR_UNSTACKABLE_PER_COPY = 5;
 
     public static boolean isResourceAmplificationEnabled(Player player) {
         if (player == null) {
@@ -158,11 +154,10 @@ public final class ResourceAmplificationHandler {
         int resourceLevel = player != null
                 ? resolveResourceLevel(player, event.getSource().getDirectEntity())
                 : 0;
-        int factor = resourceLevel > 0 ? computeResourceFactor(resourceLevel) : 0;
 
         if (CombatReentry.enterResourceDrop(event.getEntity())) {
             try {
-                processLivingDrops(event, factor);
+                processLivingDrops(event, resourceLevel);
             } catch (Throwable t) {
                 WenXingTools.LOGGER.warn("[resource_amp] living drops merge failed: {}", t.toString(), t);
             } finally {
@@ -245,22 +240,32 @@ public final class ResourceAmplificationHandler {
 
     // 成熟作物右键收割已按产品要求移除（两版一致）
 
-    private static void processLivingDrops(LivingDropsEvent event, int factor) {
+    private static void processLivingDrops(LivingDropsEvent event, int resourceLevel) {
         LivingEntity dead = event.getEntity();
-        // 先汇总 totals（物品+组件），再统一放大/追加 roll，最后一次拆分落地，避免中间实体峰值
-        Map<DropStackUtil.StackKey, Long> totals = collectMultipliedTotals(event, factor);
-        if (factor > 0) {
-            appendExtraLootTotals(event, factor, totals);
-        }
+        // 捕获到的全部来源（战利品表 / 硬编码 / 装备 / 全局战利品修饰器 / 事件追加）整体复制 4 份，再按物品分层乘倍率
+        Map<DropStackUtil.StackKey, Long> totals = collectMultipliedTotals(event, resourceLevel);
         DropStackUtil.replaceWithMerged(
                 dead.level(), dead.getX(), dead.getY(), dead.getZ(),
                 event.getDrops(), totals);
     }
 
-    /** 原有掉落 → totals × (1+factor)；刷怪蛋不参与放大。 */
-    private static Map<DropStackUtil.StackKey, Long> collectMultipliedTotals(LivingDropsEvent event, int factor) {
+    /**
+     * 击杀掉落的整体倍率：全部产物复制 {@code KILL_DROP_COPIES} 份，每份按可堆叠分层（×25 / ×5）。
+     * <p>无增幅（{@code level<=0}）返回 1，让原版掉落原样通过——击杀路径的「必合并」不依赖增幅开关。
+     */
+    private static long computeKillDropMultiplier(int level, ItemStack stack) {
+        if (level <= 0 || stack == null || stack.isEmpty()) {
+            return 1L;
+        }
+        long perCopy = (long) level * (stack.getMaxStackSize() > 1
+                ? KILL_FACTOR_STACKABLE_PER_COPY
+                : KILL_FACTOR_UNSTACKABLE_PER_COPY);
+        return Math.min(perCopy * KILL_DROP_COPIES, (long) Integer.MAX_VALUE);
+    }
+
+    /** 原有掉落 → totals ×（4 份 × 每份分层倍率）；无增幅时 ×1；刷怪蛋不参与放大。 */
+    private static Map<DropStackUtil.StackKey, Long> collectMultipliedTotals(LivingDropsEvent event, int resourceLevel) {
         Map<DropStackUtil.StackKey, Long> totals = new LinkedHashMap<>();
-        long multiplier = 1L + factor;
         for (ItemEntity itemEntity : event.getDrops()) {
             ItemStack original = itemEntity.getItem();
             if (original.isEmpty()) {
@@ -274,66 +279,10 @@ public final class ResourceAmplificationHandler {
             }
             ItemStack keyStack = original.copy();
             keyStack.setCount(1);
-            totals.merge(new DropStackUtil.StackKey(keyStack), (long) original.getCount() * multiplier, Long::sum);
+            totals.merge(new DropStackUtil.StackKey(keyStack),
+                    (long) original.getCount() * computeKillDropMultiplier(resourceLevel, original), Long::sum);
         }
         return totals;
-    }
-
-    /**
-     * 对死亡生物再完整求值 2 次战利品表（等同“再杀两次”的掉落生成），不触发 LivingDropsEvent。
-     * 结果数量再乘 (1 + factor)，并入 totals。
-     */
-    private static void appendExtraLootTotals(
-            LivingDropsEvent event,
-            int factor,
-            Map<DropStackUtil.StackKey, Long> totals) {
-        LivingEntity dead = event.getEntity();
-        if (!(dead.level() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        if (dead.isBaby()) {
-            return;
-        }
-        if (!serverLevel.getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)) {
-            return;
-        }
-        ResourceKey<LootTable> lootTableKey = dead.getLootTable();
-        if (lootTableKey == null) {
-            return;
-        }
-        LootTable lootTable = serverLevel.getServer().reloadableRegistries().getLootTable(lootTableKey);
-        if (lootTable == null || lootTable == LootTable.EMPTY) {
-            return;
-        }
-
-        Entity sourceEntity = event.getSource().getEntity();
-        Player killer = sourceEntity instanceof Player player ? player : null;
-        boolean recentlyHit = event.isRecentlyHit();
-        long multiplier = 1L + factor;
-
-        for (int roll = 0; roll < EXTRA_LOOT_ROLLS; roll++) {
-            LootParams.Builder builder = new LootParams.Builder(serverLevel)
-                    .withParameter(LootContextParams.THIS_ENTITY, dead)
-                    .withParameter(LootContextParams.ORIGIN, dead.position())
-                    .withParameter(LootContextParams.DAMAGE_SOURCE, event.getSource())
-                    .withOptionalParameter(LootContextParams.ATTACKING_ENTITY, sourceEntity)
-                    .withOptionalParameter(LootContextParams.DIRECT_ATTACKING_ENTITY, event.getSource().getDirectEntity());
-            if (recentlyHit && killer != null) {
-                builder.withParameter(LootContextParams.LAST_DAMAGE_PLAYER, killer)
-                        .withLuck(killer.getLuck());
-            }
-            LootParams params = builder.create(LootContextParamSets.ENTITY);
-            // 不传 seed：每次 roll 使用 level 随机源，结果相互独立
-            Collection<ItemStack> stacks = lootTable.getRandomItems(params);
-            for (ItemStack stack : stacks) {
-                if (stack.isEmpty()) {
-                    continue;
-                }
-                ItemStack keyStack = stack.copy();
-                keyStack.setCount(1);
-                totals.merge(new DropStackUtil.StackKey(keyStack), (long) stack.getCount() * multiplier, Long::sum);
-            }
-        }
     }
 
     private static void processBlockExtraDrops(
