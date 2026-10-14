@@ -982,6 +982,37 @@
 
 ---
 
+## 2026-10-14 · 掠蛋对无原生刷怪蛋实体的兜底（文星生物蛋接线 + 可放生）
+
+| 项 | 内容 |
+|----|------|
+| 变更类型 | 功能新增 |
+| 涉及范围 | 掠蛋掉落、文星生物蛋（`generic_spawn_egg`）右键行为、语言文件 |
+| 是否可回滚 | 是 |
+| 已知风险 | 未实机验证 |
+
+### 效果
+
+- 击杀任何**没有原生刷怪蛋**的生物（模组自有 BOSS、铁傀儡、雪傀儡、僵尸马、骷髅马、巨人等），由掠蛋附魔按等级掉落等量的「文星生物蛋」，tooltip 显示绑定的实体 id。
+- 文星生物蛋右键地面可放生对应生物；右键原版或 wenxing 刷怪笼可设定刷怪类型；创造模式不消耗。
+- 有原生刷怪蛋的生物掉落行为不变（仍掉原生蛋）。
+
+### 实现思路
+
+- `ModSpawnEggs.resolveHarvestEggStack`：真蛋缺失时不再返回空栈，改为 `GenericSpawnEggItem.create(type, 1)`。真蛋判定 `getSpawnEggFor` 语义不变。
+- `GenericSpawnEggItem` 新增 `useOn`：NBT 解析实体类型 → 原版刷怪笼分支（`SpawnerBlockEntity#setEntityId`）→ 否则 `EntityType#spawn(..., MobSpawnType.SPAWN_EGG, ...)`；解析不到类型返回 `PASS`，不放生也不消耗。
+- 删除无调用方的 `ModSpawnEggs.hasSpawnEgg`（沿用 7a5e8ea 的死代码清理口径）。
+- lang 两文件：`generic_spawn_egg.spawner_hint` 与 `spawn_egg_harvest.desc` 同步新语义。
+
+### 边界
+
+- 兜底覆盖一切无原生蛋的 `LivingEntity`，含铁傀儡/雪傀儡/僵尸马/骷髅马/巨人与未注册蛋的模组生物——产品定位下视为特性，未加排除表。
+- 放生走原版 `EntityType#spawn`（`MobSpawnType.SPAWN_EGG`），行为面与原版刷怪蛋一致；未绑定 NBT 的蛋右键不动作、不消耗。
+- 神化（Apotheosis）的 Apothic Boss 是原版实体强化版，本就命中原生蛋，不在本次范围内。
+- 未实机验证。
+
+---
+
 ## 历史摘要
 
 - 资源增幅公式：掉落 ×(1+level×100)；额外 2 roll；经验 ×level×10000。

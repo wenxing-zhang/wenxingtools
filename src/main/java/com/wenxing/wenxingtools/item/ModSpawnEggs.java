@@ -111,12 +111,8 @@ public final class ModSpawnEggs {
     public static ItemStack resolveHarvestEggStack(EntityType<?> type) {
         SpawnEggItem egg = getSpawnEggFor(type);
         if (egg == null) {
-            return ItemStack.EMPTY;
+            return GenericSpawnEggItem.create(type, 1);
         }
         return new ItemStack(egg, 1);
-    }
-
-    public static boolean hasSpawnEgg(EntityType<?> type) {
-        return getSpawnEggFor(type) != null;
     }
 }
