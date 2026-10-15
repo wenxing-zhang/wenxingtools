@@ -5,6 +5,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.item.enchantment.Enchantment;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,8 +13,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 附魔名显示：等级 &gt;10 用数字字面量，否则用 enchantment.level.*；统一灰色。
- * 1.21.1 中 Enchantment#getFullname(Holder,int) 是静态方法，回调必须为 static。
+ * 附魔名显示：诅咒附魔红色、其余灰色（对齐 Forge 1.20.1）；等级 &gt;10 用数字字面量，否则用 enchantment.level.*。
+ * 1.21.1 中 Enchantment#getFullname(Holder,int) 是静态方法，回调必须为 static；
+ * 诅咒判定走 {@code #minecraft:curse} 标签——1.21 起实例方法 isCurse() 已不可用。
  */
 @Mixin(Enchantment.class)
 public class EnchantmentMixin {
@@ -42,7 +44,7 @@ public class EnchantmentMixin {
         } catch (Throwable t) {
             return;
         }
-        name.withStyle(ChatFormatting.GRAY);
+        name.withStyle(enchantmentHolder.is(EnchantmentTags.CURSE) ? ChatFormatting.RED : ChatFormatting.GRAY);
         if (level != 1 || enchantment.getMaxLevel() != 1) {
             Component levelText = level <= 10
                     ? Component.translatable("enchantment.level." + level)

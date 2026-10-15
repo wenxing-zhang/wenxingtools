@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
  * 文星刷怪笼 BE（行为对齐 Forge 1.20.1）：
  * - 硬编码：延迟 20t / 单次 16 / 附近上限 32 / 刷怪范围 9（±4，9×9 方形）
  * - 红石通电才刷；忽略群系/光照；不做玩家在场检测
- * - NoAI + 持久化；出生点吸附可站立地面（±2）
+ * - NoAI + 持久化；出生点吸附可站立地面（以刷怪笼自身 Y 为基准、垂直 ±4，与计数盒一致；该范围内无落脚点则不生成）
  * - 客户端：供电时火焰/烟雾粒子
  */
 public class CustomSpawnerBlockEntity extends BlockEntity {
@@ -36,8 +36,8 @@ public class CustomSpawnerBlockEntity extends BlockEntity {
     private static final String TAG_COOLDOWN = "Cooldown";
     // 火把抑制层要据此放行本刷怪笼的产物，故对外可见
     public static final String SPAWNER_MOB_TAG = WenXingTools.MODID + ":spawner_mob";
-    private static final int GROUND_SEARCH_BELOW = 2;
-    private static final int GROUND_SEARCH_ABOVE = 2;
+    private static final int GROUND_SEARCH_BELOW = 4;
+    private static final int GROUND_SEARCH_ABOVE = 4;
 
     private int cooldown = SPAWN_DELAY_TICKS;
     @Nullable
