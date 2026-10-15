@@ -225,6 +225,13 @@ public final class ResourceAmplificationEvents {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
+            // 刷怪蛋不参与放大：原样并入合计（设计 §5.3「刷怪蛋不放大」；此前漏判，击杀掉落的蛋会被一起复制放大）
+            if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
+                ItemStack eggKey = stack.copy();
+                eggKey.setCount(1);
+                totals.merge(new com.wenxing.wenxingtools.util.DropStackUtil.StackKey(eggKey), (long) stack.getCount(), Long::sum);
+                continue;
+            }
             // 捕获到的全部来源（战利品表 / 硬编码 / 装备 / GLM / 数据包改写 / 事件追加）整体复制 4 份，再按物品分层乘倍率
             long multiplier = AmpSupport.computeKillDropMultiplier(resourceLevel, stack);
             long total = (long) stack.getCount() * multiplier;
