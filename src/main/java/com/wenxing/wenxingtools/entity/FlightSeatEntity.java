@@ -20,6 +20,9 @@ public class FlightSeatEntity extends Entity {
 
     private static final double SPEED = 0.42D;
     private static final double VERTICAL_RATIO = 0.8D;
+    private static final double GROUND_PROBE = 0.08D;
+
+    private boolean leftGround = false;
 
     public FlightSeatEntity(EntityType<? extends FlightSeatEntity> type, Level level) {
         super(type, level);
@@ -80,12 +83,21 @@ public class FlightSeatEntity extends Entity {
             this.discard();
             return;
         }
-        if (FlightSeatService.shouldReclaim(FlightSeatService.isFreedomOn(rider), rider.isShiftKeyDown())) {
+        if (!FlightSeatService.isFreedomOn(rider)) {
             FlightSeatService.dismountAndDiscard(rider);
             return;
         }
 
         FlightSeatInputStore.Input input = FlightSeatInputStore.get(rider.getUUID());
+        boolean touchingGround = isTouchingGround();
+        if (FlightSeatPolicy.shouldDismountOnGround(this.leftGround, touchingGround, input.up())) {
+            FlightSeatService.dismountAndDiscard(rider);
+            return;
+        }
+        if (!touchingGround) {
+            this.leftGround = true;
+        }
+
         Vec3 look = rider.getLookAngle();
         Vec3 flat = new Vec3(look.x, 0.0D, look.z);
         if (flat.lengthSqr() > 1.0E-6D) {
@@ -96,5 +108,9 @@ public class FlightSeatEntity extends Entity {
         this.setDeltaMovement(motion);
         this.move(MoverType.SELF, motion);
         this.hurtMarked = true;
+    }
+
+    private boolean isTouchingGround() {
+        return !this.level().noCollision(this, this.getBoundingBox().move(0.0D, -GROUND_PROBE, 0.0D));
     }
 }

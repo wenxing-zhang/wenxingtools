@@ -12,11 +12,6 @@ import net.minecraft.world.entity.player.Player;
 public final class FlightSeatService {
     private FlightSeatService() {}
 
-    /** 载具的维持条件：自由特性开着且未潜行。抽成纯函数便于隔离验证。 */
-    public static boolean shouldReclaim(boolean freedomOn, boolean sneaking) {
-        return sneaking || !freedomOn;
-    }
-
     public static boolean isFreedomOn(ServerPlayer player) {
         if (player == null) {
             return false;
@@ -59,7 +54,7 @@ public final class FlightSeatService {
         return true;
     }
 
-    /** 开关关闭 / 登出 / 死亡克隆 / 重生 / 切维时的统一回收出口。 */
+    /** 开关关闭 / 落地 / 登出 / 死亡克隆 / 重生 / 切维时的统一回收出口。 */
     public static void dismountAndDiscard(Player player) {
         if (player == null) {
             return;
