@@ -3,7 +3,9 @@ package com.wenxing.wenxingtools.item;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ai.attributes.Attribute;
@@ -118,23 +120,37 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
         }
         CompoundTag tag = stack.getTag();
         boolean flagged = tag != null && tag.getBoolean(BUILTIN_FLAG);
-        Map<Enchantment, Integer> enchants = EnchantmentHelper.getEnchantments(stack);
-        if (flagged
-                && !hasCurse(enchants)
-                && enchants.getOrDefault(Enchantments.ALL_DAMAGE_PROTECTION, 0) == BUILTIN_PROTECTION_LEVEL
-                && enchants.getOrDefault(ModEnchantments.LIFE_AMPLIFICATION.get(), 0) == BUILTIN_LIFE_AMPLIFICATION_LEVEL
-                && enchants.getOrDefault(ModEnchantments.POTION_AMPLIFICATION.get(), 0) == BUILTIN_POTION_AMPLIFICATION_LEVEL) {
+        if (flagged && hasBuiltinEnchantments(stack)) {
             return;
         }
         applyBuiltinEnchantments(stack);
     }
 
-    private static boolean hasCurse(Map<Enchantment, Integer> enchants) {
-        for (Enchantment enchantment : enchants.keySet()) {
+    // 直读附魔列表核对，避免每 tick 构造 HashMap（该物品在背包/装备槽每 tick 触发一次）
+    private static boolean hasBuiltinEnchantments(ItemStack stack) {
+        ListTag list = stack.getEnchantmentTags();
+        int protection = 0;
+        int life = 0;
+        int potion = 0;
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            Enchantment enchantment = BuiltInRegistries.ENCHANTMENT.get(EnchantmentHelper.getEnchantmentId(entry));
+            if (enchantment == null) {
+                continue;
+            }
             if (enchantment.isCurse()) {
-                return true;
+                return false;
+            }
+            if (enchantment == Enchantments.ALL_DAMAGE_PROTECTION) {
+                protection = EnchantmentHelper.getEnchantmentLevel(entry);
+            } else if (enchantment == ModEnchantments.LIFE_AMPLIFICATION.get()) {
+                life = EnchantmentHelper.getEnchantmentLevel(entry);
+            } else if (enchantment == ModEnchantments.POTION_AMPLIFICATION.get()) {
+                potion = EnchantmentHelper.getEnchantmentLevel(entry);
             }
         }
-        return false;
+        return protection == BUILTIN_PROTECTION_LEVEL
+                && life == BUILTIN_LIFE_AMPLIFICATION_LEVEL
+                && potion == BUILTIN_POTION_AMPLIFICATION_LEVEL;
     }
 }

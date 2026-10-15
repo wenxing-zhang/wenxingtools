@@ -24,6 +24,8 @@ public interface IAuthorityData extends INBTSerializable<CompoundTag> {
 
     void copyFrom(IAuthorityData source);
 
+    boolean wasLoadedFromNbt();
+
     boolean isDirty();
     void clearDirty();
 }

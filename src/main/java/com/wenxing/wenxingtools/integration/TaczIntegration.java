@@ -2,6 +2,7 @@ package com.wenxing.wenxingtools.integration;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -80,19 +81,37 @@ public class TaczIntegration {
         if (!(entity instanceof Projectile projectile)) {
             return;
         }
-        Entity owner = projectile.getOwner();
-        if (!(owner instanceof LivingEntity shooter)) return;
-        if (!(shooter instanceof net.minecraft.world.entity.player.Player)) return;
-        ItemStack gunStack = findGunStackFromShooter(shooter);
-        if (gunStack.isEmpty()) {
+        if (tryAssignBulletResourceLevel(entity, projectile)) {
             return;
         }
+        // join 时 owner 可能尚未赋值：延后一刻重试一次
+        if (event.getLevel() instanceof ServerLevel serverLevel && serverLevel.getServer() != null) {
+            serverLevel.getServer().execute(() -> {
+                if (!entity.isRemoved() && !entity.level().isClientSide) {
+                    tryAssignBulletResourceLevel(entity, projectile);
+                }
+            });
+        }
+    }
 
+    /** 写成功（或 owner 已就位）返回 true；owner 仍为空返回 false 供调用方重试。 */
+    private static boolean tryAssignBulletResourceLevel(Entity entity, Projectile projectile) {
+        Entity owner = projectile.getOwner();
+        if (!(owner instanceof net.minecraft.world.entity.player.Player shooter)) {
+            return false;
+        }
+        if (entity.getPersistentData().contains(RESOURCE_AMPLIFICATION_LEVEL_KEY)) {
+            return true;
+        }
+        ItemStack gunStack = findGunStackFromShooter(shooter);
+        if (gunStack.isEmpty()) {
+            return true;
+        }
         int resourceLevel = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.RESOURCE_AMPLIFICATION.get(), gunStack);
-
         if (resourceLevel > 0) {
             entity.getPersistentData().putInt(RESOURCE_AMPLIFICATION_LEVEL_KEY, resourceLevel);
         }
+        return true;
     }
 
     private static ItemStack findGunStackFromShooter(LivingEntity shooter) {

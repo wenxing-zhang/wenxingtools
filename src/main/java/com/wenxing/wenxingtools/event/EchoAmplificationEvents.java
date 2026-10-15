@@ -20,6 +20,8 @@ public final class EchoAmplificationEvents {
 
 
     public static final int HITS_PER_LEVEL = 10;
+    // 单次命中追加次数上限（设计 §5.7）：cenchant 超等级时钳制，避免单次循环数千次 hurt
+    public static final int MAX_HITS = 256;
 
     private static final ThreadLocal<Boolean> ECHO_CHAIN_RUNNING = ThreadLocal.withInitial(() -> false);
 
@@ -85,10 +87,11 @@ public final class EchoAmplificationEvents {
         if (ECHO_CHAIN_RUNNING.get()) {
             return;
         }
-        int hits = HITS_PER_LEVEL * level;
+        long hits = (long) HITS_PER_LEVEL * level;
         if (hits <= 0 || !(attackPower > 0.0f)) {
             return;
         }
+        int hitCount = (int) Math.min(hits, MAX_HITS);
 
 
         DamageSource voidSource = CombatUtil.createVanillaOutOfWorldSource(player);
@@ -98,7 +101,7 @@ public final class EchoAmplificationEvents {
 
         ECHO_CHAIN_RUNNING.set(true);
         try {
-            for (int i = 0; i < hits; i++) {
+            for (int i = 0; i < hitCount; i++) {
                 if (target.isRemoved() || !target.isAlive()) {
                     break;
                 }

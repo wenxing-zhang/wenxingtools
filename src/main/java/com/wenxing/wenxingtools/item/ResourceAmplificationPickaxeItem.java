@@ -4,7 +4,9 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -111,29 +113,46 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
         }
         CompoundTag tag = stack.getTag();
         boolean flagged = tag != null && tag.getBoolean(BUILTIN_FLAG);
-        Map<Enchantment, Integer> enchants = EnchantmentHelper.getEnchantments(stack);
-        if (flagged
-                && enchants.getOrDefault(ModEnchantments.RESOURCE_AMPLIFICATION.get(), 0) == BUILTIN_RESOURCE_AMPLIFICATION_LEVEL
-                && enchants.getOrDefault(ModEnchantments.ATTACK_AMPLIFICATION.get(), 0) == BUILTIN_ATTACK_AMPLIFICATION_LEVEL
-                && enchants.getOrDefault(ModEnchantments.SPAWN_EGG_HARVEST.get(), 0) == BUILTIN_SPAWN_EGG_HARVEST_LEVEL) {
+        if (flagged && hasBuiltinEnchantments(stack)) {
             return;
         }
         applyBuiltinEnchantments(stack);
+    }
+
+    // 直读附魔列表核对，避免每 tick 构造 HashMap（该物品在背包/装备槽每 tick 触发一次）
+    private static boolean hasBuiltinEnchantments(ItemStack stack) {
+        ListTag list = stack.getEnchantmentTags();
+        int resource = 0;
+        int attack = 0;
+        int harvest = 0;
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            Enchantment enchantment = BuiltInRegistries.ENCHANTMENT.get(EnchantmentHelper.getEnchantmentId(entry));
+            if (enchantment == null) {
+                continue;
+            }
+            if (enchantment == ModEnchantments.RESOURCE_AMPLIFICATION.get()) {
+                resource = EnchantmentHelper.getEnchantmentLevel(entry);
+            } else if (enchantment == ModEnchantments.ATTACK_AMPLIFICATION.get()) {
+                attack = EnchantmentHelper.getEnchantmentLevel(entry);
+            } else if (enchantment == ModEnchantments.SPAWN_EGG_HARVEST.get()) {
+                harvest = EnchantmentHelper.getEnchantmentLevel(entry);
+            }
+        }
+        return resource == BUILTIN_RESOURCE_AMPLIFICATION_LEVEL
+                && attack == BUILTIN_ATTACK_AMPLIFICATION_LEVEL
+                && harvest == BUILTIN_SPAWN_EGG_HARVEST_LEVEL;
     }
 
 
 
     @Override
     public boolean hurtEnemy(ItemStack stack, LivingEntity target, LivingEntity attacker) {
-        stack.hurtAndBreak(0, attacker, (e) -> e.broadcastBreakEvent(EquipmentSlot.MAINHAND));
         return true;
     }
 
     @Override
     public boolean mineBlock(ItemStack stack, Level level, BlockState state, BlockPos pos, LivingEntity miner) {
-        if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
-            stack.hurtAndBreak(0, miner, (e) -> e.broadcastBreakEvent(EquipmentSlot.MAINHAND));
-        }
         return true;
     }
 

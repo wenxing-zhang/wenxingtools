@@ -2,9 +2,12 @@ package com.wenxing.wenxingtools.integration;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 
 import java.lang.reflect.Method;
 
@@ -123,12 +126,30 @@ public final class InfernalMobsIntegration {
             }
         }
         if (!(restored > 0f) || Float.isNaN(restored)) {
-
-            restored = 20f;
+            restored = defaultMaxHealth(target);
+        }
+        if (!(restored > 0f) || Float.isNaN(restored)) {
+            return;
         }
         maxHealth.setBaseValue(restored);
         if (target.getHealth() > restored) {
             target.setHealth(restored);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static float defaultMaxHealth(LivingEntity target) {
+        try {
+            AttributeSupplier supplier = DefaultAttributes.getSupplier(
+                    (EntityType<? extends LivingEntity>) target.getType());
+            if (supplier != null && supplier.hasAttribute(Attributes.MAX_HEALTH)) {
+                double base = supplier.getBaseValue(Attributes.MAX_HEALTH);
+                if (base > 0.0 && !Double.isNaN(base)) {
+                    return (float) base;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0.0f;
     }
 }

@@ -131,8 +131,7 @@ public final class L2HostilityIntegration {
         CompoundTag data = target.getPersistentData();
         for (String key : com.wenxing.wenxingtools.event.EffectPurgeSupport.copyKeys(data)) {
             String lower = key.toLowerCase(Locale.ROOT);
-            if (lower.contains("hostility") || lower.contains("affix") || lower.contains("affinit")
-                    || lower.contains("l2hostility")) {
+            if (lower.contains("l2hostility")) {
                 data.remove(key);
             }
         }

@@ -37,7 +37,7 @@ public final class ResourcePickaxeMiningHandler {
                 ? state.getDestroySpeed(player.level(), pos)
                 : state.getDestroySpeed(player.level(), BlockPos.ZERO);
 
-        if (hardness <= 0.0F) {
+        if (Float.isNaN(hardness) || hardness <= 0.0F) {
             return;
         }
         boolean canHarvest = !state.requiresCorrectToolForDrops()

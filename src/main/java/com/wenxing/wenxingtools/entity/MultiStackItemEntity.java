@@ -32,6 +32,7 @@ public class MultiStackItemEntity extends ItemEntity {
 
     private final List<ItemStack> stacks = new ArrayList<>();
     private boolean syncingFromStacks;
+    private long cachedFirstKindTotal;
 
     public MultiStackItemEntity(EntityType<? extends ItemEntity> type, Level level) {
         super(type, level);
@@ -172,8 +173,7 @@ public class MultiStackItemEntity extends ItemEntity {
             applyExternalItem(ItemStack.EMPTY);
             return;
         }
-        long total = totalOfKind(kind);
-        if (!isSameKind(ext, kind) || ext.getCount() != (int) Math.min(total, Integer.MAX_VALUE)) {
+        if (!isSameKind(ext, kind) || ext.getCount() != (int) Math.min(cachedFirstKindTotal, Integer.MAX_VALUE)) {
             applyExternalItem(ext);
         }
     }
@@ -205,11 +205,13 @@ public class MultiStackItemEntity extends ItemEntity {
 
     private void refreshDisplay() {
         if (stacks.isEmpty()) {
+            cachedFirstKindTotal = 0L;
             refreshDisplayWith(ItemStack.EMPTY);
             return;
         }
         ItemStack first = stacks.get(0);
         long total = totalOfKind(first);
+        cachedFirstKindTotal = total;
         ItemStack display = first.copy();
         display.setCount((int) Math.min(total, Integer.MAX_VALUE));
         refreshDisplayWith(display);
@@ -318,9 +320,12 @@ public class MultiStackItemEntity extends ItemEntity {
         MultiStackItemEntity copied = new MultiStackItemEntity(ModEntities.MULTI_STACK_ITEM.get(), this.level());
         copied.setPos(this.getX(), this.getY(), this.getZ());
         copied.setDeltaMovement(this.getDeltaMovement());
-        if (this.hasPickUpDelay()) {
-            copied.setPickUpDelay(40);
-        }
+        copied.age = this.age;
+        copied.pickupDelay = this.pickupDelay;
+        copied.health = this.health;
+        copied.lifespan = this.lifespan;
+        copied.thrower = this.thrower;
+        copied.target = this.target;
         copied.setStacks(this.stacks);
         return copied;
     }

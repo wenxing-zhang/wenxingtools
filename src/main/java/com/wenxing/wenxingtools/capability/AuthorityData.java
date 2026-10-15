@@ -15,6 +15,7 @@ public class AuthorityData implements IAuthorityData {
     private int killAuraMode = 0;
 
     private transient boolean dirty = false;
+    private transient boolean loadedFromNbt = false;
 
     public boolean isDirty() {
         return dirty;
@@ -22,6 +23,11 @@ public class AuthorityData implements IAuthorityData {
 
     public void clearDirty() {
         this.dirty = false;
+    }
+
+    @Override
+    public boolean wasLoadedFromNbt() {
+        return loadedFromNbt;
     }
 
     @Override
@@ -151,5 +157,6 @@ public class AuthorityData implements IAuthorityData {
                     .persistentId();
         }
         this.dirty = false;
+        this.loadedFromNbt = true;
     }
 }

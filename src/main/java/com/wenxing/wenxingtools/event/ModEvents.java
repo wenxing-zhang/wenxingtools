@@ -1,13 +1,11 @@
 package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
-import com.wenxing.wenxingtools.capability.AuthorityData;
 import com.wenxing.wenxingtools.capability.AuthorityDataProvider;
 import com.wenxing.wenxingtools.capability.AuthorityDataStorage;
 import com.wenxing.wenxingtools.capability.IAuthorityData;
 import com.wenxing.wenxingtools.network.PacketHandler;
 import com.wenxing.wenxingtools.util.PermissionUtil;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -144,10 +142,7 @@ public class ModEvents {
             if (event.getEntity() instanceof ServerPlayer player) {
                 IAuthorityData data = AuthorityDataProvider.getData(player);
                 if (data != null) {
-                    CompoundTag defaults = new AuthorityData().serializeNBT();
-                    CompoundTag current = data.serializeNBT();
-                    boolean primaryLoaded = !current.equals(defaults);
-                    if (!primaryLoaded) {
+                    if (!data.wasLoadedFromNbt()) {
                         AuthorityDataStorage.loadBackupIfMissing(player, false);
                     }
                     data.setInvincibleCharacteristic(false);
