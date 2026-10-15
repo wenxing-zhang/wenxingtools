@@ -4,13 +4,13 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.entity.MultiStackItemEntity;
 import com.wenxing.wenxingtools.event.ResourceAmplificationHandler;
 import com.wenxing.wenxingtools.util.CombatUtil;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 
 import java.lang.reflect.Method;
@@ -19,17 +19,19 @@ import java.util.Optional;
 /**
  * Malum 精魂识别 / 增幅工具。
  * <p>
- * 精魂是 Malum 的 {@code SpiritItemEntity}（{@code FloatingItemEntity} 子类）：它会自动飞向击杀者并被吸收，
- * <b>不是</b>普通掉落物，也不应被转成落地物品——否则玩家只能靠碰撞拾取，且并入/丢弃过程会丢精魂。
+ * 精魂是 Malum 的 {@code SpiritItemEntity}（{@code FloatingItemEntity} 子类）：自动飞向击杀者并被吸收，
+ * 不是普通掉落物。「先让它入世、再移除」会踩到硬坑——实体在生成包发出前就被移除，服务端仍为「已移除的实体」
+ * 发追踪包，客户端据此造出收不到销毁包的幽灵实体，在生成点越堆越多。
  * <p>
- * 入世时按击杀者当前的资源增幅状态处理（无增幅不动 / 有增幅 ×{@value #SPIRIT_MULTIPLIER}）：
+ * 因此改为在 {@link EntityJoinLevelEvent} 上<b>直接取消精魂入世</b>，把放大后的物品立刻交付：
  * <ul>
- *   <li><b>新生成</b>的精魂：直接把放大后的数量交给击杀者——走 Malum 的 {@code pickupSpirit} 入账
- *       （保留精魂袋路由 / 收集事件 / 溢出落地语义），成功即移除实体，达成「立即到手」；任一步失败回落为放大实体。</li>
- *   <li><b>从磁盘重载</b>的精魂：只放大实体所载数量、保留实体交回 Malum 自动收集，避免重登时重复入账。</li>
+ *   <li>有击杀者归属 + 开增幅：×{@value #SPIRIT_MULTIPLIER} 后交付；</li>
+ *   <li>无击杀者归属：转交最近玩家（按其增幅状态放大）；附近确无玩家则直接取消（原本也只能原地自毁）；</li>
+ *   <li>有归属但未开增幅：不拦截，交回 Malum 原生飞行收集；</li>
+ *   <li>随区块重载重新入世：不拦截——取消会让它在每次区块加载时被重复投递。</li>
  * </ul>
- * 反射仅用于 Malum 侧类型（第三方模组不参与本仓库的映射改名，源码名即运行时名）；
- * 反射失败一律保守降级（×1 / 保留实体）。
+ * 交付优先走 Malum 的 {@code pickupSpirit}（保留精魂袋 / 收集事件 / 溢出落地语义），不可用时自主入包或落地。
+ * 反射仅用于 Malum 侧类型（第三方模组不参与本仓库的映射改名，源码名即运行时名）；失败一律保守降级（不丢精魂）。
  * <p>
  * 版本适配：入账入口在 Malum 1.21.1 为 {@code com.sammy.malum.core.handlers.SoulHarvestHandler}
  * （1.20.1 侧为 {@code SpiritHarvestHandler}）——本仓库对齐 NeoForge 1.21.1，故取前者。
@@ -39,8 +41,8 @@ public final class MalumSpiritAmplification {
     /** 精魂资源增幅固定倍率（与掉落物的 (1+level×100) 不同） */
     public static final int SPIRIT_MULTIPLIER = 10;
 
-    /** 放大标记：写在精魂物品的 CUSTOM_DATA 上，随实体存档往返，防止区块重载再次触发入世事件导致重复放大 */
-    private static final String AMP_KEY = WenXingTools.MODID + ":spirit_amp";
+    /** 无归属精魂兜底转交的搜索半径（格）；超出则视为无人接收，直接取消入世 */
+    private static final double SALVAGE_RANGE = 64.0D;
 
     private static final String SPIRIT_ITEM_ENTITY = "com.sammy.malum.common.entity.spirit.SpiritItemEntity";
     private static final String SPIRIT_ITEM_ENTITY_ALT = "com.sammy.malum.common.entity.SpiritItemEntity";
@@ -48,96 +50,128 @@ public final class MalumSpiritAmplification {
     private static final String SOUL_HARVEST_HANDLER = "com.sammy.malum.core.handlers.SoulHarvestHandler";
 
     private static Method getItemMethod;
-    private static Method setItemMethod;
     private static Method getDestinationMethod;
     private static Method getEntityCollectorMethod;
+
+    private static boolean pickupSpiritResolved;
     private static Method pickupSpiritMethod;
 
     private MalumSpiritAmplification() {
     }
 
     public static void register() {
-        // 精魂入世：新生成的直接交给击杀者，磁盘重载的只放大实体数量
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                 MalumSpiritAmplification::onEntityJoin);
         WenXingTools.LOGGER.debug("[resource_amp] Malum spirit helpers registered (amp x{})", SPIRIT_MULTIPLIER);
     }
 
-    /** 精魂入世：新生成的直接交给击杀者，磁盘重载的只放大实体数量。 */
+    /** 精魂入世：取消其入世并把放大后的物品直接交付——实体不进入世界，从根本上消灭幽灵实体与堆积。 */
     private static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide() || !(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
         Entity entity = event.getEntity();
-        if (entity == null || entity.isRemoved() || !isSpiritDropEntity(entity)) {
+        if (entity == null || !isSpiritDropEntity(entity)) {
             return;
         }
-        Player owner = resolveSpiritOwner(serverLevel, entity);
-        if (owner == null) {
+        // 随区块重载重新入世的精魂不拦截：取消会让它在每次区块加载时被重复投递
+        if (event.loadedFromDisk()) {
             return;
         }
-        int multiplier = resolveSpiritMultiplier(owner);
-        if (multiplier <= 1) {
-            return;
-        }
-        // 新生成的精魂直接交付；磁盘重载的保留实体，避免重登时重复入账
-        boolean deliverDirectly = !event.loadedFromDisk();
-        // 延到下一刻，避免在入世事件里改动刚入世的实体
-        serverLevel.getServer().execute(() -> handleSpirit(entity, owner, multiplier, deliverDirectly));
-    }
 
-    private static void handleSpirit(Entity entity, Player owner, int multiplier, boolean deliverDirectly) {
-        if (entity.isRemoved()) {
+        Player owner = resolveSpiritOwner(serverLevel, entity);
+        boolean owned = owner != null;
+        if (!owned) {
+            owner = nearestPlayer(serverLevel, entity);
+        }
+        if (owner == null) {
+            // 无人可接收：直接取消入世（原本也只能原地悬浮到寿命上限自毁）
+            event.setCanceled(true);
             return;
         }
+        if (owned && resolveSpiritMultiplier(owner) <= 1) {
+            // 有击杀者归属且无资源增幅：不拦截，交回 Malum 原生飞行收集
+            return;
+        }
+
         ItemStack current = getEntityItem(entity);
         if (current == null || current.isEmpty()) {
+            event.setCanceled(true);
             return;
         }
-        // 已处理过（区块重载会再次触发入世事件）：跳过，避免指数级放大
-        CustomData data = current.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        if (data.contains(AMP_KEY)) {
-            return;
-        }
-        long amplified = (long) current.getCount() * multiplier;
+        long amplified = (long) current.getCount() * Math.max(1, resolveSpiritMultiplier(owner));
         int count = (int) Math.min(amplified, Integer.MAX_VALUE);
-        if (count <= current.getCount() || count <= 0) {
+        if (count <= 0) {
+            event.setCanceled(true);
             return;
         }
-        if (deliverDirectly && !owner.isRemoved()
-                && owner.level() == entity.level()
-                && deliverSpiritDirectly(owner, current, count)) {
-            entity.discard();
-            return;
-        }
-        ItemStack target = current.copy();
-        target.setCount(count);
-        var tag = data.copyTag();
-        tag.putInt(AMP_KEY, multiplier);
-        target.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
-        if (!setEntityItem(entity, target)) {
-            WenXingTools.LOGGER.debug("[resource_amp] Malum spirit amplify skipped for {}", entity.getType());
-        }
-    }
-
-    /** 走 Malum 的 pickupSpirit 直接入账（保留精魂袋 / 收集事件 / 溢出落地）；失败返回 false 交回放大回落。 */
-    private static boolean deliverSpiritDirectly(Player owner, ItemStack current, int count) {
         ItemStack delivered = current.copy();
         delivered.setCount(count);
-        try {
-            if (pickupSpiritMethod == null) {
-                Class<?> handler = Class.forName(SOUL_HARVEST_HANDLER);
-                pickupSpiritMethod = handler.getMethod("pickupSpirit", LivingEntity.class, ItemStack.class);
+        Player target = owner;
+
+        // 取消入世：实体不会进入世界，因此没有生成包 / 追踪 / 幽灵实体，也不会堆积
+        event.setCanceled(true);
+        // 世界交互（入包 / 落地）延到下一刻执行，避免在区块尚未就绪时触发交互
+        serverLevel.getServer().execute(() -> deliverToOwner(target, delivered));
+    }
+
+    /** 最近的在线玩家（同维度、非旁观、{@value #SALVAGE_RANGE} 格内）；没有则返回 null。 */
+    private static Player nearestPlayer(ServerLevel level, Entity entity) {
+        Player best = null;
+        double bestDist = SALVAGE_RANGE * SALVAGE_RANGE;
+        for (ServerPlayer player : level.players()) {
+            if (CombatUtil.isNotValidAttackerPlayer(player)) {
+                continue;
             }
-            pickupSpiritMethod.invoke(null, owner, delivered);
-            return true;
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[resource_amp] Malum spirit direct pickup unavailable, falling back: {}", t.toString());
-            return false;
+            double dist = player.distanceToSqr(entity);
+            if (dist <= bestDist) {
+                bestDist = dist;
+                best = player;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 交付给玩家：优先走 Malum 的 pickupSpirit（保留精魂袋 / 收集事件 / 溢出落地语义）；
+     * 该入口不可用或抛错时自主交付——先入背包，仍放不下则落地成普通掉落物（可拾取、可被磁铁吸取）。
+     */
+    private static void deliverToOwner(Player owner, ItemStack delivered) {
+        if (owner.isRemoved()) {
+            return;
+        }
+        Method method = resolvePickupSpiritMethod();
+        if (method != null) {
+            try {
+                method.invoke(null, owner, delivered);
+                return;
+            } catch (Throwable t) {
+                WenXingTools.LOGGER.warn("[resource_amp] Malum spirit pickup failed, delivering directly: {}", t.toString());
+            }
+        }
+        if (!delivered.isEmpty()) {
+            owner.getInventory().add(delivered);
+            if (!delivered.isEmpty()) {
+                owner.drop(delivered, false);
+            }
         }
     }
 
-    /** 击杀者：精魂的 collector → 在线玩家。任一环节失败返回 null（调用方保守放行）。 */
+    /** Malum 精魂入账入口；缺失 / 改名时返回 null 并降级为自主交付（只提示一次）。 */
+    private static Method resolvePickupSpiritMethod() {
+        if (!pickupSpiritResolved) {
+            pickupSpiritResolved = true;
+            try {
+                Class<?> handler = Class.forName(SOUL_HARVEST_HANDLER);
+                pickupSpiritMethod = handler.getMethod("pickupSpirit", LivingEntity.class, ItemStack.class);
+            } catch (Throwable t) {
+                WenXingTools.LOGGER.warn("[resource_amp] Malum spirit pickup entry unavailable; using direct delivery: {}", t.toString());
+            }
+        }
+        return pickupSpiritMethod;
+    }
+
+    /** 击杀者：精魂的目标收集者 → 在线玩家。任一环节失败返回 null（交由就近兜底）。 */
     private static Player resolveSpiritOwner(ServerLevel level, Entity spirit) {
         Player player = resolveCollectorPlayer(level, spirit);
         if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
@@ -199,6 +233,9 @@ public final class MalumSpiritAmplification {
 
     /** 成功返回 stack（可为空）；读取失败返回 null，调用方不得据此丢弃实体。 */
     public static ItemStack getEntityItem(Entity entity) {
+        if (entity instanceof ItemEntity itemEntity) {
+            return itemEntity.getItem();
+        }
         try {
             if (getItemMethod == null || !getItemMethod.getDeclaringClass().isInstance(entity)) {
                 getItemMethod = entity.getClass().getMethod("getItem");
@@ -210,15 +247,16 @@ public final class MalumSpiritAmplification {
         }
     }
 
-    private static boolean setEntityItem(Entity entity, ItemStack stack) {
-        try {
-            if (setItemMethod == null || !setItemMethod.getDeclaringClass().isInstance(entity)) {
-                setItemMethod = entity.getClass().getMethod("setItem", ItemStack.class);
-            }
-            setItemMethod.invoke(entity, stack);
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
+    /**
+     * Malum「待碎裂」战利品：{@code SpiritHarvestHandler.primeItemForShatter} 会 setNeverPickUp() 并
+     * setNoGravity(true)，随后让其到期碎裂成精魂。这类掉落必须照常入世，否则 Malum 的精魂生成链断裂。
+     * <p>
+     * 判据取其两个公开可见后果（永不拾取 + 无重力）的合取：本模组/Minecraft 自有成员的官方名在生产环境
+     * 会被 reobf 成 SRG 名，反射私有字段会在真实服务器上静默失效，故一律走公开 API。
+     */
+    public static boolean isShatterPrimedDrop(ItemEntity itemEntity) {
+        return itemEntity != null
+                && itemEntity.hasPickUpDelay()
+                && itemEntity.isNoGravity();
     }
 }

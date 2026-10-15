@@ -2,7 +2,6 @@ package com.wenxing.wenxingtools.compat;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,7 +11,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.core.Holder;
 
 import java.lang.reflect.Method;
@@ -32,9 +30,19 @@ public final class SoftModCompat {
     public static final String GOLD_CROWN_ID = "irons_spellbooks:gold_crown";
     public static final String TIAB_ID = "tiab:time_in_a_bottle";
 
-    public static final String NBT_STORED_TIME = "storedTime";
-    public static final String NBT_TOTAL_TIME = "totalAccumulatedTime";
-    public static final int MAX_TIME = Integer.MAX_VALUE;
+    private static final String TIAB_API_CLASS = "org.mangorage.tiab.common.api.ICommonTimeInABottleAPI";
+    private static final String TIAB_CONFIG_CLASS = "org.mangorage.tiab.common.api.ITiabConfig";
+    private static final String TIAB_ITEM_CLASS = "org.mangorage.tiab.common.api.impl.ITiabItem";
+    private static final String TIAB_COMPONENT_CLASS = "org.mangorage.tiab.common.api.impl.IStoredTimeComponent";
+
+    /** 1.21.1 的 TIAB 把瓶内时间存于自有 DataComponent（stored/total），不再读 vanilla custom_data。 */
+    private static volatile Boolean tiabBridgeReady;
+    private static volatile Object tiabItemRef;
+    private static volatile Object tiabConfigRef;
+    private static volatile Method tiabTickBottle;
+    private static volatile Method tiabGetStoredComponent;
+    private static volatile Method tiabStoredGetter;
+    private static volatile Method tiabMaxStoredTime;
 
     private static final ResourceLocation CROWN_MANA_ID =
             ResourceLocation.fromNamespaceAndPath(WenXingTools.MODID, "gold_crown_mana");
@@ -354,16 +362,52 @@ public final class SoftModCompat {
             return;
         }
         try {
-            CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-            var tag = data.copyTag();
-            if (tag.getInt(NBT_STORED_TIME) == MAX_TIME && tag.getInt(NBT_TOTAL_TIME) == MAX_TIME) {
+            ensureTiabBridge();
+            if (!Boolean.TRUE.equals(tiabBridgeReady)) {
                 return;
             }
-            // 必须是 int：TIAB 读 getInt；同键写 long 会变成 TAG_LONG 导致读到 0
-            tag.putInt(NBT_STORED_TIME, MAX_TIME);
-            tag.putInt(NBT_TOTAL_TIME, MAX_TIME);
-            stack.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+            Object component = tiabGetStoredComponent.invoke(tiabItemRef, stack);
+            int stored = component == null ? 0 : (Integer) tiabStoredGetter.invoke(component);
+            int delta = (Integer) tiabMaxStoredTime.invoke(tiabConfigRef) - stored;
+            if (delta <= 0) {
+                return;
+            }
+            tiabTickBottle.invoke(tiabItemRef, stack, delta);
         } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * 反射解析 TIAB 的瓶内时间组件与补齐入口。
+     * 1.21.1 的 TIAB 只认自有 DataComponent；旧实现往 custom_data 写 storedTime 属于写错地方，从未生效。
+     * 任一步不命中即整体关闭，保持原样不碰物品。
+     */
+    private static void ensureTiabBridge() {
+        Boolean cached = tiabBridgeReady;
+        if (cached != null) {
+            return;
+        }
+        try {
+            Class<?> apiClass = Class.forName(TIAB_API_CLASS);
+            Object supplier = apiClass.getField("COMMON_API").get(null);
+            Object api = java.util.function.Supplier.class.getMethod("get").invoke(supplier);
+            Object config = apiClass.getMethod("getConfig").invoke(api);
+            Item item = itemOrNull(TIAB_ID);
+            if (api == null || config == null || item == null) {
+                tiabBridgeReady = false;
+                return;
+            }
+            Class<?> itemClass = Class.forName(TIAB_ITEM_CLASS);
+            tiabConfigRef = config;
+            tiabItemRef = item;
+            tiabTickBottle = itemClass.getMethod("tickBottle", ItemStack.class, int.class);
+            tiabGetStoredComponent = itemClass.getMethod("getStoredComponent", ItemStack.class);
+            tiabStoredGetter = Class.forName(TIAB_COMPONENT_CLASS).getMethod("stored");
+            tiabMaxStoredTime = Class.forName(TIAB_CONFIG_CLASS).getMethod("MAX_STORED_TIME");
+            tiabBridgeReady = true;
+        } catch (Throwable t) {
+            WenXingTools.LOGGER.debug("[compat] TIAB stored-time bridge unavailable: {}", t.toString());
+            tiabBridgeReady = false;
         }
     }
 

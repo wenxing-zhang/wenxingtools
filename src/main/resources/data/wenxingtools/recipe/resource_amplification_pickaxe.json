@@ -11,7 +11,7 @@
       "tag": "c:ingots/iron"
     },
     "S": {
-      "item": "minecraft:stick"
+      "tag": "minecraft:logs"
     }
   },
   "result": {

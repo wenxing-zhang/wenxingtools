@@ -55,10 +55,6 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
     private static final int BUILTIN_ATTACK_AMPLIFICATION_LEVEL = 5;
     /** 掠蛋：击杀掉对应刷怪蛋，数量 = 等级（内置硬编码，不走配置） */
     private static final int BUILTIN_SPAWN_EGG_HARVEST_LEVEL = 2;
-    /** 回响：命中追加 10×等级 次虚空伤害；可高于附魔表 max_level=3 */
-    private static final int BUILTIN_ECHO_AMPLIFICATION_LEVEL = 5;
-    /** 净化：命中清药水并开 10×等级 秒持续窗 */
-    private static final int BUILTIN_EFFECT_PURGE_LEVEL = 3;
     private static final int BUILTIN_UNBREAKING_LEVEL = 3;
     private static final int BUILTIN_FORTUNE_LEVEL = 3;
 
@@ -99,8 +95,6 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
         BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL, player);
         BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL, player);
         BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL, player);
-        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL, player);
-        BuiltinEnchantmentSupport.raiseAtLeast(stack, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL, player);
 
         ItemEnchantments.Mutable mutable = new ItemEnchantments.Mutable(
                 stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY));
@@ -118,9 +112,7 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
     private static boolean hasAllBuiltinEnchantments(ItemEnchantments enchantments) {
         return BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.RESOURCE_AMPLIFICATION, BUILTIN_RESOURCE_AMPLIFICATION_LEVEL)
                 && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.ATTACK_AMPLIFICATION, BUILTIN_ATTACK_AMPLIFICATION_LEVEL)
-                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL)
-                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.ECHO_AMPLIFICATION, BUILTIN_ECHO_AMPLIFICATION_LEVEL)
-                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.EFFECT_PURGE, BUILTIN_EFFECT_PURGE_LEVEL);
+                && BuiltinEnchantmentSupport.hasAtLeast(enchantments, ModEnchantments.SPAWN_EGG_HARVEST, BUILTIN_SPAWN_EGG_HARVEST_LEVEL);
     }
 
     @Override

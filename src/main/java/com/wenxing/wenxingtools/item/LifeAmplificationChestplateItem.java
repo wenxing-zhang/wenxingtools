@@ -36,8 +36,8 @@ import java.util.List;
 /**
  * 生命增幅胸甲：铁甲外观，内置 护甲/韧性 1000 与 9 项附魔，不可破坏。
  * <p>
- * 护甲/韧性高于原版属性上限，需 {@link com.wenxing.wenxingtools.util.ArmorAttributeUncap} 抬高上限，
- * 并由 {@link com.wenxing.wenxingtools.mixin.CombatRulesMixin} 放开减伤上界，否则数值会被静默截断。
+ * 护甲/韧性高于原版属性上限（30 / 20），运行时会被原版静默钳位；「护甲 1000」的意图由
+ * {@link com.wenxing.wenxingtools.event.LifeAmplificationChestplateEvents} 在伤害终值层补足。
  */
 public class LifeAmplificationChestplateItem extends ArmorItem {
 

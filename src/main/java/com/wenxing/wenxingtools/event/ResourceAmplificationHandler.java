@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.integration.MalumSpiritAmplification;
 import com.wenxing.wenxingtools.integration.TaczIntegration;
 import com.wenxing.wenxingtools.util.CombatReentry;
 import com.wenxing.wenxingtools.util.CombatUtil;
@@ -23,9 +24,12 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
+import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,6 +51,10 @@ public final class ResourceAmplificationHandler {
     private static final int KILL_FACTOR_STACKABLE_PER_COPY = 25;
     /** 击杀掉落每份的倍率系数：不可堆叠物品每级 ×5（4 份合计 level×20） */
     private static final int KILL_FACTOR_UNSTACKABLE_PER_COPY = 5;
+    /** 方块破坏额外掉落的倍率系数：可堆叠物品每级 ×100（对齐 Forge 1.20.1） */
+    private static final int RESOURCE_FACTOR_STACKABLE_PER_LEVEL = 100;
+    /** 方块破坏额外掉落的倍率系数：不可堆叠物品每级 ×10（对齐 Forge 1.20.1） */
+    private static final int RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL = 10;
 
     public static boolean isResourceAmplificationEnabled(Player player) {
         if (player == null) {
@@ -72,6 +80,19 @@ public final class ResourceAmplificationHandler {
         }
         long factor = (long) level * 100L;
         return (int) Math.min(factor, Integer.MAX_VALUE);
+    }
+
+    /**
+     * 方块破坏额外掉落的分层倍率（对齐 Forge 1.20.1）：可堆叠 {@code level×100}，不可堆叠（{@code maxStackSize == 1}）{@code level×10}。
+     * <p>不可堆叠物品若吃满 ×100，单个 MultiStack 实体会塞进上百个单件条目、同步包体量失控，故单独降档。
+     */
+    private static long computeResourceFactorForStack(int level, ItemStack stack) {
+        if (level <= 0 || stack == null || stack.isEmpty()) {
+            return 0L;
+        }
+        return (long) level * (stack.getMaxStackSize() > 1
+                ? RESOURCE_FACTOR_STACKABLE_PER_LEVEL
+                : RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL);
     }
 
     public static Component buildResourceAmplificationToggleMessage(boolean newState, int displayLevel) {
@@ -232,21 +253,57 @@ public final class ResourceAmplificationHandler {
         if (!state.canHarvestBlock(level, pos, player)) {
             return;
         }
-        int factor = computeResourceFactor(resourceLevel);
-        // 不取消 BreakEvent：原版会掉落 1 份，这里只补 factor 份额外
+        // 不取消 BreakEvent：原版会掉落 1 份，这里只补分层倍率的额外份
         // 兼容连锁采集：对方对每个方块各发一次 BreakEvent 时，每块都会走此分支放大
-        processBlockExtraDrops(serverLevel, pos, state, player, factor);
+        processBlockExtraDrops(serverLevel, pos, state, player, resourceLevel);
+    }
+
+    /**
+     * 挖掘方块的经验增幅（对齐 Forge 1.20.1）。
+     * <p>1.21 起原版把方块经验从 {@code Block#playerDestroy} 挪到掉落事件，入口由 1.20.1 的
+     * {@code BlockEvent.BreakEvent#getExpToDrop} 变为本事件的 {@code getDroppedExperience}——语义相同、类不同。
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public static void onBlockDropsExperience(BlockDropsEvent event) {
+        if (event.isCanceled()) {
+            return;
+        }
+        if (!(event.getBreaker() instanceof Player player) || CombatUtil.isNotValidAttackerPlayer(player)) {
+            return;
+        }
+        if (player.getAbilities().instabuild) {
+            return;
+        }
+        int exp = event.getDroppedExperience();
+        if (exp <= 0) {
+            return;
+        }
+        int resourceLevel = getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        if (resourceLevel <= 0) {
+            return;
+        }
+        long amplified = (long) exp * (1L + (long) computeResourceFactor(resourceLevel));
+        event.setDroppedExperience((int) Math.min(amplified, (long) RESOURCE_XP_CAP));
     }
 
     // 成熟作物右键收割已按产品要求移除（两版一致）
 
     private static void processLivingDrops(LivingDropsEvent event, int resourceLevel) {
         LivingEntity dead = event.getEntity();
+        // Malum 打过「待碎裂」标记的战利品必须原样入世，否则精魂生成链断裂
+        List<ItemEntity> passthrough = new ArrayList<>();
+        for (ItemEntity itemEntity : event.getDrops()) {
+            if (MalumSpiritAmplification.isShatterPrimedDrop(itemEntity)) {
+                passthrough.add(itemEntity);
+            }
+        }
+        event.getDrops().removeAll(passthrough);
         // 捕获到的全部来源（战利品表 / 硬编码 / 装备 / 全局战利品修饰器 / 事件追加）整体复制 4 份，再按物品分层乘倍率
         Map<DropStackUtil.StackKey, Long> totals = collectMultipliedTotals(event, resourceLevel);
         DropStackUtil.replaceWithMerged(
                 dead.level(), dead.getX(), dead.getY(), dead.getZ(),
                 event.getDrops(), totals);
+        event.getDrops().addAll(passthrough);
     }
 
     /**
@@ -290,12 +347,13 @@ public final class ResourceAmplificationHandler {
             BlockPos pos,
             BlockState state,
             Player player,
-            int factor) {
-        if (factor <= 0) {
+            int resourceLevel) {
+        if (resourceLevel <= 0) {
             return;
         }
         var drops = Block.getDrops(state, level, pos, level.getBlockEntity(pos), player, player.getMainHandItem());
-        DropStackUtil.popTotals(level, pos, DropStackUtil.mergeStacksMultiplied(drops, factor));
+        DropStackUtil.popTotals(level, pos,
+                DropStackUtil.mergeStacksMultipliedBy(drops, stack -> computeResourceFactorForStack(resourceLevel, stack)));
     }
 
 }
