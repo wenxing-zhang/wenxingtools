@@ -27,6 +27,7 @@
   "item.wenxingtools.generic_spawn_egg.entity": "Mob: %s",
   "item.wenxingtools.generic_spawn_egg.spawner_hint": "Right-click ground to spawn the mob; right-click a spawner to set its type",
   "item.wenxingtools.generic_spawn_egg.unbound": "Unbound entity type",
+  "entity.wenxingtools.flight_seat": "Flight Seat",
   "itemGroup.wenxingtools": "WenXing Tools",
   "key.category.wenxingtools.wenxing": "WenXing Tools",
   "key.wenxingtools.invincible": "Toggle Invincible Characteristic (KP1)",

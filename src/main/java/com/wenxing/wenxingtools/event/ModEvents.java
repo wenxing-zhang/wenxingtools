@@ -107,7 +107,7 @@ public class ModEvents {
             if (!event.getEntity().level().isClientSide && event.getEntity() instanceof ServerPlayer player) {
                 PacketHandler.syncAuthorityData(player);
 
-                CharacteristicTickHandler.reapplyFreedomAfterWorldChange(player);
+                CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
             }
 
 
@@ -122,7 +122,7 @@ public class ModEvents {
                 PacketHandler.syncAuthorityData(player);
 
 
-                CharacteristicTickHandler.reapplyFreedomAfterWorldChange(player);
+                CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
             }
 
             if (event.getEntity() != null) {

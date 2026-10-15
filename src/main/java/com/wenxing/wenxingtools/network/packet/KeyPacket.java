@@ -102,18 +102,11 @@ public class KeyPacket {
                     newState = !data.isFreedomCharacteristicOn();
                     data.setFreedomCharacteristic(newState);
                     if (newState) {
-                        player.getAbilities().mayfly = true;
-                        characteristicName = "自由特性：已开启";
+                        characteristicName = "自由特性：已开启（双击空格起飞）";
                     } else {
-                        if (!player.isCreative() && !player.isSpectator()) {
-                            player.getAbilities().mayfly = false;
-                            player.getAbilities().flying = false;
-                            characteristicName = "自由特性：已关闭";
-                        } else {
-                            characteristicName = "自由特性：已关闭";
-                        }
+                        com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
+                        characteristicName = "自由特性：已关闭";
                     }
-                    player.onUpdateAbilities();
                     break;
                 case KILL_AURA:
                     newState = !data.isKillAuraCharacteristicOn();

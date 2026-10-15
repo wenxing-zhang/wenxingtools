@@ -184,14 +184,10 @@ public class ModCommands {
         if (!requireAuthorityData(player)) return 0;
         IAuthorityData data = AuthorityDataProvider.getData(player);
         data.setFreedomCharacteristic(enable);
-        if (enable) {
-            player.getAbilities().mayfly = true;
-        } else if (!player.isCreative() && !player.isSpectator()) {
-            player.getAbilities().mayfly = false;
-            player.getAbilities().flying = false;
+        if (!enable) {
+            com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
         }
-        player.onUpdateAbilities();
-        sendToggleFeedback(player, "自由特性", enable, null);
+        sendToggleFeedback(player, "自由特性", enable, enable ? "双击空格起飞" : null);
         PacketHandler.syncAuthorityData(player);
         return 1;
     }
