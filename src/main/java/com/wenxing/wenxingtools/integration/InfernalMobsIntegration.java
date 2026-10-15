@@ -3,11 +3,14 @@ package com.wenxing.wenxingtools.integration;
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -131,11 +134,33 @@ public final class InfernalMobsIntegration {
             }
         }
         if (!(restored > 0f) || Float.isNaN(restored)) {
+            // 取不到该模组的「基础血量」时，回退到实体类型的默认最大生命，而非硬编码 20
+            restored = defaultMaxHealth(target);
+        }
+        if (!(restored > 0f) || Float.isNaN(restored)) {
+            // 类型也无默认血量（自定义实体）：不动基础值，避免写入错误数值
             return;
         }
         maxHealth.setBaseValue(restored);
         if (target.getHealth() > restored) {
             target.setHealth(restored);
         }
+    }
+
+    /** 实体类型的默认最大生命（原版属性表）；取不到返回 0。 */
+    @SuppressWarnings("unchecked")
+    private static float defaultMaxHealth(LivingEntity target) {
+        try {
+            AttributeSupplier supplier = DefaultAttributes.getSupplier(
+                    (EntityType<? extends LivingEntity>) target.getType());
+            if (supplier != null && supplier.hasAttribute(Attributes.MAX_HEALTH)) {
+                double base = supplier.getBaseValue(Attributes.MAX_HEALTH);
+                if (base > 0.0 && !Double.isNaN(base)) {
+                    return (float) base;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0.0f;
     }
 }

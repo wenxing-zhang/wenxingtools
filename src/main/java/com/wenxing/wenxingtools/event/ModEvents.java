@@ -103,7 +103,10 @@ public final class ModEvents {
         if (data == null) {
             return;
         }
-        if (!hasMeaningfulAuthorityPayload(data)) {
+        // 判据用「本次登录是否真的从存档反序列化过」：此前比较「数据是否等于全默认值」，
+        // 玩家真实数据恰为默认（或主动重置）时会被误判为「没存过」，从而用旧备份覆盖。
+        // NeoForge Attachment 为权威源；镜像/persistentData 与外部备份仅在其缺失时兜底。
+        if (!data.wasLoadedFromNbt()) {
             CompoundTag tag = player.getPersistentData().getCompound(AUTHORITY_DATA_PERSISTENT_KEY);
             if (tag != null && !tag.isEmpty()) {
                 data.deserializeNBT(tag);
@@ -117,16 +120,6 @@ public final class ModEvents {
         data.setFreedomCharacteristic(false);
         data.setKillAuraCharacteristic(false);
         data.clearDirty();
-    }
-
-    private static boolean hasMeaningfulAuthorityPayload(IAuthorityData data) {
-        return data.getLockedHealth() != 20.0f
-                || data.getResourceMultiplier() != 10
-                || data.getKillAuraMode() != 0
-                || data.isInvincibleCharacteristicOn()
-                || data.isResourceCharacteristicOn()
-                || data.isFreedomCharacteristicOn()
-                || data.isKillAuraCharacteristicOn();
     }
 
     @SubscribeEvent(priority = net.neoforged.bus.api.EventPriority.LOWEST)

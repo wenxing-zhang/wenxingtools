@@ -571,7 +571,11 @@ public final class L2HostilityIntegration {
         return cache;
     }
 
-    /** NBT 层清 hostility/affix 关键字（1.21 L2 走 Attachment，通常无效，仅兜底）。 */
+    /**
+     * NBT 层清 l2hostility 关键字（1.21 L2 走 Attachment，通常无效，仅兜底）。
+     * <p>只按模组名匹配：此前连同 {@code hostility} / {@code affix} / {@code affinit} 一起删，
+     * 会命中其它模组的同名片段键（如无关模组的 {@code ...affinity}）。
+     */
     public static void stripNbtKeys(LivingEntity target) {
         if (target == null) {
             return;
@@ -579,8 +583,7 @@ public final class L2HostilityIntegration {
         CompoundTag data = target.getPersistentData();
         for (String key : EffectPurgeSupport.copyKeys(data)) {
             String lower = key.toLowerCase(Locale.ROOT);
-            if (lower.contains("hostility") || lower.contains("affix") || lower.contains("affinit")
-                    || lower.contains("l2hostility")) {
+            if (lower.contains("l2hostility")) {
                 data.remove(key);
             }
         }

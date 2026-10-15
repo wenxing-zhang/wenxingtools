@@ -95,7 +95,11 @@ public final class MalumSpiritAmplification {
         }
 
         ItemStack current = getEntityItem(entity);
-        if (current == null || current.isEmpty()) {
+        if (current == null) {
+            // 读取失败（反射异常 / 类型漂移）：放行给 Malum 原生处理，不得据此丢弃精魂
+            return;
+        }
+        if (current.isEmpty()) {
             event.setCanceled(true);
             return;
         }

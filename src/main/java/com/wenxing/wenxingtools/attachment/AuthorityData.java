@@ -15,6 +15,13 @@ public class AuthorityData implements IAuthorityData {
     private int killAuraMode = 0;
 
     private transient boolean dirty = false;
+    /** 本次登录是否真的从存档 NBT 反序列化过（用于区分「存档里没有数据」与「数据恰为默认值」）。 */
+    private transient boolean loadedFromNbt = false;
+
+    @Override
+    public boolean wasLoadedFromNbt() {
+        return loadedFromNbt;
+    }
 
     @Override
     public boolean isDirty() {
@@ -148,5 +155,6 @@ public class AuthorityData implements IAuthorityData {
             killAuraMode = loadedMode == 1 ? 1 : 0;
         }
         this.dirty = false;
+        this.loadedFromNbt = true;
     }
 }

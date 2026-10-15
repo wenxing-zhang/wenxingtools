@@ -3,6 +3,9 @@ package com.wenxing.wenxingtools.attachment;
 import net.minecraft.nbt.CompoundTag;
 
 public interface IAuthorityData {
+    /** 本次登录是否真的从存档 NBT 反序列化过（false = 存档里没有这份数据）。 */
+    boolean wasLoadedFromNbt();
+
     boolean isDirty();
 
     void clearDirty();
