@@ -61,7 +61,7 @@ public final class EffectPurgeSupport {
         }
     }
 
-    /** 只清药水；跳过第三方锁类效果（如 attributearch:wenxing_bind 禁锢）。 */
+    /** 只清药水；跳过第三方保护类效果（如 attributearch 的护盾/禁锢）。 */
     public static void suppressEffects(LivingEntity target) {
         if (target == null || !target.isAlive()) {
             return;
@@ -71,14 +71,18 @@ public final class EffectPurgeSupport {
 
     private static void clearPurgeableEffects(LivingEntity target) {
         for (MobEffectInstance effect : List.copyOf(target.getActiveEffects())) {
-            if (isProtectedFromPurge(effect)) {
+            if (isProtectedEffect(effect)) {
                 continue;
             }
             target.removeEffect(effect.getEffect());
         }
     }
 
-    private static boolean isProtectedFromPurge(MobEffectInstance effect) {
+    /**
+     * 第三方保护类效果：本模组的清除一律跳过（如 attributearch 给玩家挂的护盾）。
+     * 净化的「清药水」与药水增幅的「清负面」共用此判定，避免两处口径分叉。
+     */
+    public static boolean isProtectedEffect(MobEffectInstance effect) {
         if (effect == null) {
             return false;
         }

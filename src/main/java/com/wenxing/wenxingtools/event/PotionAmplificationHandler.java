@@ -102,12 +102,17 @@ public final class PotionAmplificationHandler {
         }
         List<Holder<MobEffect>> harmful = null;
         for (MobEffectInstance instance : player.getActiveEffects()) {
-            if (instance.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
-                if (harmful == null) {
-                    harmful = new ArrayList<>();
-                }
-                harmful.add(instance.getEffect());
+            if (instance.getEffect().value().getCategory() != MobEffectCategory.HARMFUL) {
+                continue;
             }
+            // 与净化同口径：第三方保护类效果（如 attributearch 的护盾）不清除
+            if (EffectPurgeSupport.isProtectedEffect(instance)) {
+                continue;
+            }
+            if (harmful == null) {
+                harmful = new ArrayList<>();
+            }
+            harmful.add(instance.getEffect());
         }
         if (harmful == null) {
             return;
