@@ -23,6 +23,7 @@ public class FlightSeatEntity extends Entity {
     private static final double GROUND_PROBE = 0.08D;
 
     private boolean leftGround = false;
+    private int groundTicks = 0;
 
     public FlightSeatEntity(EntityType<? extends FlightSeatEntity> type, Level level) {
         super(type, level);
@@ -90,7 +91,10 @@ public class FlightSeatEntity extends Entity {
 
         FlightSeatInputStore.Input input = FlightSeatInputStore.get(rider.getUUID());
         boolean touchingGround = isTouchingGround();
-        if (FlightSeatPolicy.shouldDismountOnGround(this.leftGround, touchingGround, input.up())) {
+        this.groundTicks = FlightSeatPolicy.countsAsGrounded(this.leftGround, touchingGround, input.up())
+                ? this.groundTicks + 1
+                : 0;
+        if (FlightSeatPolicy.shouldDismountOnGround(this.leftGround, touchingGround, input.up(), this.groundTicks)) {
             FlightSeatService.dismountAndDiscard(rider);
             return;
         }

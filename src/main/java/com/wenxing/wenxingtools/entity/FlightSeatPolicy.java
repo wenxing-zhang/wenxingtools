@@ -6,11 +6,16 @@ package com.wenxing.wenxingtools.entity;
 public final class FlightSeatPolicy {
     private FlightSeatPolicy() {}
 
-    /**
-     * 起飞（离地）之后再次触地即下马。
-     * 未离地时不算落地——否则贴地召唤的下一刻就会失效；贴地且按住上升键时不下马，可原地再起飞。
-     */
-    public static boolean shouldDismountOnGround(boolean leftGround, boolean touchingGround, int upInput) {
+    /** 贴地持续多少刻才判定为「落地」——留出贴地掠过与贴地起飞的余量。 */
+    public static final int GROUND_DISMOUNT_TICKS = 5;
+
+    /** 是否处于「起飞后贴地且未按上升键」的状态（该状态每刻累计一次）。 */
+    public static boolean countsAsGrounded(boolean leftGround, boolean touchingGround, int upInput) {
         return touchingGround && leftGround && upInput <= 0;
+    }
+
+    /** 起飞后贴地、且持续够久才下马；从未离地或贴地时按着上升键都不算。 */
+    public static boolean shouldDismountOnGround(boolean leftGround, boolean touchingGround, int upInput, int groundTicks) {
+        return countsAsGrounded(leftGround, touchingGround, upInput) && groundTicks >= GROUND_DISMOUNT_TICKS;
     }
 }
