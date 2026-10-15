@@ -15,16 +15,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * NeoForge 兼容入口 {@code ItemStack#supportsEnchantment} 默认实现会走
  * {@code Enchantment#isSupportedItem}；第三方（AttributeArch 等）仍可能调
  * {@code canEnchant}。两处都放行，避免「铁砧能附、祭坛不能附」。
+ * <p>
+ * 两处都是实例方法的返回值改写，不是铁砧那条 createResult 调用链上的注入。
  */
 @Mixin(Enchantment.class)
-public abstract class EnchantmentWeaponCoverageMixin {
+public abstract class EnchantmentWeaponCoverageMixin implements MixinMarkers.WeaponCoverageExpand {
 
-    @Inject(method = "isSupportedItem", at = @At("RETURN"), cancellable = true, require = 0)
+    @Inject(method = "isSupportedItem", at = @At("RETURN"), cancellable = true)
     private void wenxingtools$expandSupportedItem(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
         wenxingtools$expandIfAllowed(stack, cir);
     }
 
-    @Inject(method = "canEnchant", at = @At("RETURN"), cancellable = true, require = 0)
+    @Inject(method = "canEnchant", at = @At("RETURN"), cancellable = true)
     private void wenxingtools$expandCanEnchant(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
         wenxingtools$expandIfAllowed(stack, cir);
     }

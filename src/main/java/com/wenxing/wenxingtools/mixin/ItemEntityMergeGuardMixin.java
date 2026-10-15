@@ -17,9 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * MultiStack 一律视为不可合并，普通 ItemEntity 之间仍按原版堆叠。
  */
 @Mixin(ItemEntity.class)
-public abstract class ItemEntityMergeGuardMixin {
+public abstract class ItemEntityMergeGuardMixin implements MixinMarkers.MultiStackMergeGuard {
 
-    @Inject(method = "isMergable", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "isMergable", at = @At("HEAD"), cancellable = true)
     private void wenxingtools$multiStackNotMergable(CallbackInfoReturnable<Boolean> cir) {
         if (!MixinSelfCheck.isMultiStackMergeGuardEnabled()) {
             return;
@@ -29,7 +29,7 @@ public abstract class ItemEntityMergeGuardMixin {
         }
     }
 
-    @Inject(method = "tryToMerge", at = @At("HEAD"), cancellable = true, require = 0)
+    @Inject(method = "tryToMerge", at = @At("HEAD"), cancellable = true)
     private void wenxingtools$skipMultiStackMerge(ItemEntity other, CallbackInfo ci) {
         if (!MixinSelfCheck.isMultiStackMergeGuardEnabled()) {
             return;

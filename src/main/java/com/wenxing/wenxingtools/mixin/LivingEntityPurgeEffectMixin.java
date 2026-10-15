@@ -17,13 +17,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 比事件层更前：覆盖不经 Applicable 的强制写入路径；与每 tick 全量清、Added 结束后全量再清形成多层保险。
  */
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityPurgeEffectMixin {
+public abstract class LivingEntityPurgeEffectMixin implements MixinMarkers.PurgeEffectWriteBlock {
 
     @Inject(
             method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;)Z",
             at = @At("HEAD"),
-            cancellable = true,
-            require = 0
+            cancellable = true
     )
     private void wenxingtools$blockAddEffect(MobEffectInstance effect, CallbackInfoReturnable<Boolean> cir) {
         if (wenxingtools$shouldBlockEffectWrite()) {
@@ -34,8 +33,7 @@ public abstract class LivingEntityPurgeEffectMixin {
     @Inject(
             method = "addEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)Z",
             at = @At("HEAD"),
-            cancellable = true,
-            require = 0
+            cancellable = true
     )
     private void wenxingtools$blockAddEffectFrom(
             MobEffectInstance effect,
@@ -49,8 +47,7 @@ public abstract class LivingEntityPurgeEffectMixin {
     @Inject(
             method = "forceAddEffect(Lnet/minecraft/world/effect/MobEffectInstance;Lnet/minecraft/world/entity/Entity;)V",
             at = @At("HEAD"),
-            cancellable = true,
-            require = 0
+            cancellable = true
     )
     private void wenxingtools$blockForceAddEffect(
             MobEffectInstance effect,

@@ -17,14 +17,13 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * 虚空自带穿透护甲/附魔/盾牌，后续结算按虚空语义走，且只触发一次事件链。
  */
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityPurgeDamageMixin {
+public abstract class LivingEntityPurgeDamageMixin implements MixinMarkers.PurgeVoidRewrite {
 
     @ModifyVariable(
             method = "actuallyHurt(Lnet/minecraft/world/damagesource/DamageSource;F)V",
             at = @At("HEAD"),
             argsOnly = true,
-            ordinal = 0,
-            require = 0
+            ordinal = 0
     )
     private DamageSource wenxingtools$purgeToVoid(DamageSource source) {
         if (!MixinSelfCheck.isPurgeVoidRewriteEnabled()) {

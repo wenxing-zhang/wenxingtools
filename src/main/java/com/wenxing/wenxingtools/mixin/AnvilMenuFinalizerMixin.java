@@ -30,9 +30,11 @@ import java.util.Map;
  * 父类 ItemCombinerMenu 的 inputSlots/resultSlots <b>不能</b>用 @Shadow：
  * Mixin 只解析目标类 AnvilMenu 自身声明的字段，父类字段会 InvalidMixinException（已实机踩坑）。
  * 因此用可控反射 + MixinSelfCheck 告警/关特性。
+ * <p>
+ * 不写 {@code require = 0}：打空即本 Mixin 应用失败，由启动自检的落地标记发现并关闭特性。
  */
 @Mixin(value = AnvilMenu.class, priority = 500)
-public abstract class AnvilMenuFinalizerMixin {
+public abstract class AnvilMenuFinalizerMixin implements MixinMarkers.AnvilResultFinalize {
     @Shadow
     @Final
     private DataSlot cost;
@@ -94,7 +96,7 @@ public abstract class AnvilMenuFinalizerMixin {
         return getField(F_resultSlots, this);
     }
 
-    @Inject(method = "createResult", at = @At("RETURN"), require = 0)
+    @Inject(method = "createResult", at = @At("RETURN"))
     private void finalizeAnvilResultAfterAllMods(CallbackInfo ci) {
         if (!com.wenxing.wenxingtools.util.MixinSelfCheck.isAnvilFallbackEnabled()) {
             return;

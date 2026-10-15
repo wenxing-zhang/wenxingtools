@@ -18,12 +18,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 诅咒判定走 {@code #minecraft:curse} 标签——1.21 起实例方法 isCurse() 已不可用。
  */
 @Mixin(Enchantment.class)
-public class EnchantmentMixin {
+public class EnchantmentMixin implements MixinMarkers.EnchantNameDisplay {
     @Inject(
             method = "getFullname(Lnet/minecraft/core/Holder;I)Lnet/minecraft/network/chat/Component;",
             at = @At("HEAD"),
-            cancellable = true,
-            require = 0
+            cancellable = true
     )
     private static void wenxingtools$modifyFullname(
             Holder<Enchantment> enchantmentHolder,

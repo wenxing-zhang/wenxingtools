@@ -12,19 +12,22 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
  * 1.21.1 破坏速度入口是 getDigSpeed（getDestroySpeed 转发至其无位置变体）。
  * 实现为原位修正 ÷5 的除数常量（置 1.0F 等效取消），仅在该惩罚实际执行时介入；
  * 不抢占方法内的 onGround() 调用点——该点常被他模组重定向，同点抢占会互斥并致注入失败方启动崩溃。
+ * <p>
+ * 该方法内 float 5.0F 常量唯一（已对照 1.21.1 反编译源），故不写 ordinal。
  */
 @Mixin(Player.class)
-public abstract class PlayerDestroySpeedMixin {
+public abstract class PlayerDestroySpeedMixin implements MixinMarkers.FlyMiningIgnore {
 
     @ModifyConstant(
             method = "getDigSpeed(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;)F",
-            constant = @Constant(floatValue = 5.0F),
-            require = 0
+            constant = @Constant(floatValue = 5.0F)
     )
     private float wenxingtools$ignoreFlyMiningPenalty(float original) {
+        if (!MixinSelfCheck.isFlyMiningIgnoreEnabled()) {
+            return original;
+        }
         Player self = (Player) (Object) this;
-        if (MixinSelfCheck.isFlyMiningIgnoreEnabled()
-                && self.getMainHandItem().getItem() instanceof ResourceAmplificationPickaxeItem) {
+        if (self.getMainHandItem().getItem() instanceof ResourceAmplificationPickaxeItem) {
             return 1.0F;
         }
         return original;

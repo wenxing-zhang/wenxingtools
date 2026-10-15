@@ -1,16 +1,18 @@
 package com.wenxing.wenxingtools.util;
 
 import com.wenxing.wenxingtools.WenXingTools;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.level.block.state.BlockState;
-
-import java.lang.reflect.Method;
+import com.wenxing.wenxingtools.mixin.MixinMarkers;
 
 /**
- * Mixin 启动自检：校验注入目标是否仍存在；失败打 WARN 并关闭对应特性开关，
- * 避免 Mixin require=0 时功能静默退回原版却仍向玩家展示为可用。
+ * Mixin 启动自检：校验注入是否<b>真正落到目标类</b>；失败打 WARN 并关闭对应特性开关，
+ * 避免功能静默退回原版却仍向玩家展示为可用。
+ * <p>
+ * 判据是「落地标记」而不是「目标成员是否存在」：每个 Mixin 类实现 {@link MixinMarkers} 里的一个空标记接口，
+ * Mixin 成功应用时会把接口加到目标类上。任一注入点打空——目标成员还在、调用点却没了——都会让整个 Mixin
+ * 应用失败、标记随之缺失；这一层是成员存在性检查看不到的（铁砧曾有三条永不命中的重定向即属此类）。
+ * <p>
+ * 注入点不再写 {@code require = 0}（那会让打空彻底静默）：统一走配置的 defaultRequire，
+ * 打空即该 Mixin 整体失败并在启动日志留痕。
  * 工具类：无事件监听，勿加 @EventBusSubscriber。
  */
 public final class MixinSelfCheck {
@@ -32,8 +34,6 @@ public final class MixinSelfCheck {
     private static volatile boolean weaponCoverageExpandEnabled = true;
     /** MultiStack 防邻居合并（ItemEntityMergeGuardMixin） */
     private static volatile boolean multiStackMergeGuardEnabled = true;
-    /** 护甲减伤上限扩展（CombatRulesMixin） */
-    private static volatile boolean uncappedArmorEnabled = true;
 
     public static boolean isFixedMiningEnabled() {
         return fixedMiningEnabled;
@@ -67,213 +67,111 @@ public final class MixinSelfCheck {
         return multiStackMergeGuardEnabled;
     }
 
-    public static boolean isUncappedArmorEnabled() {
-        return uncappedArmorEnabled;
-    }
-
     public static void run() {
         int missing = 0;
-        // getDestroyProgress 声明在 BlockBehaviour.BlockStateBase，BlockState 本类没有
-        if (checkMethod("BlockState.getDestroyProgress",
-                net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase.class,
-                "getDestroyProgress",
-                Player.class, net.minecraft.world.level.BlockGetter.class, net.minecraft.core.BlockPos.class) != 0) {
+
+        if (!checkMarker("固定 0.25s 挖掘（BlockStateDestroyProgressMixin）",
+                "net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase",
+                MixinMarkers.FixedMining.class)) {
             fixedMiningEnabled = false;
             missing++;
         }
-        // 1.21.1 离地惩罚在 getDigSpeed(BlockState, BlockPos)
-        if (checkMethod("Player.getDigSpeed",
-                Player.class,
-                "getDigSpeed",
-                BlockState.class, net.minecraft.core.BlockPos.class) != 0) {
+        if (!checkMarker("飞行/离地挖掘免惩罚（PlayerDestroySpeedMixin）",
+                "net.minecraft.world.entity.player.Player",
+                MixinMarkers.FlyMiningIgnore.class)) {
             flyMiningIgnoreEnabled = false;
             missing++;
         }
-        // 1.21.1 中附魔全名为 static；实例回调曾导致启动崩溃，此处确认签名形态
-        if (checkStaticFullname() != 0) {
+        if (!checkMarker("附魔名显示（EnchantmentMixin）",
+                "net.minecraft.world.item.enchantment.Enchantment",
+                MixinMarkers.EnchantNameDisplay.class)) {
             enchantNameOverrideEnabled = false;
             missing++;
         }
-        boolean slotsOk = checkFieldPresent("ItemCombinerMenu.inputSlots",
-                "net.minecraft.world.inventory.ItemCombinerMenu",
-                "inputSlots") == 0;
-        boolean resultOk = checkFieldPresent("ItemCombinerMenu.resultSlots",
-                "net.minecraft.world.inventory.ItemCombinerMenu",
-                "resultSlots") == 0;
-        if (!slotsOk || !resultOk) {
-            anvilFallbackEnabled = false;
-            missing++;
-        }
-        // 铁砧重定向目标（AnvilMenuMixin）：createResult 本体 + supportsEnchantment + areCompatible
-        boolean anvilTargetsOk = checkMethod("AnvilMenu.createResult",
-                net.minecraft.world.inventory.AnvilMenu.class,
-                "createResult") == 0
-                && checkMethod("ItemStack.supportsEnchantment",
-                net.minecraft.world.item.ItemStack.class,
-                "supportsEnchantment",
-                net.minecraft.core.Holder.class) == 0
-                && checkStaticAreCompatible() == 0;
-        if (!anvilTargetsOk) {
-            anvilFallbackEnabled = false;
-            missing++;
-        }
-        if (checkMethod("LivingEntity.actuallyHurt",
-                LivingEntity.class,
-                "actuallyHurt",
-                net.minecraft.world.damagesource.DamageSource.class, float.class) != 0) {
-            purgeVoidRewriteEnabled = false;
-            missing++;
-        }
-        boolean addEffectOk = checkMethod("LivingEntity.addEffect",
-                LivingEntity.class,
-                "addEffect",
-                net.minecraft.world.effect.MobEffectInstance.class) == 0
-                && checkMethod("LivingEntity.addEffect(from)",
-                LivingEntity.class,
-                "addEffect",
-                net.minecraft.world.effect.MobEffectInstance.class, net.minecraft.world.entity.Entity.class) == 0;
-        boolean forceAddOk = checkMethod("LivingEntity.forceAddEffect",
-                LivingEntity.class,
-                "forceAddEffect",
-                net.minecraft.world.effect.MobEffectInstance.class, net.minecraft.world.entity.Entity.class) == 0;
-        if (!addEffectOk || !forceAddOk) {
-            purgeEffectBlockEnabled = false;
-            missing++;
-        }
-        boolean isSupportedItemOk = checkMethod("Enchantment.isSupportedItem",
-                Enchantment.class,
-                "isSupportedItem",
-                net.minecraft.world.item.ItemStack.class) == 0;
-        boolean canEnchantOk = checkMethod("Enchantment.canEnchant",
-                Enchantment.class,
-                "canEnchant",
-                net.minecraft.world.item.ItemStack.class) == 0;
-        if (!isSupportedItemOk || !canEnchantOk) {
+        if (!checkMarker("掠蛋武器覆盖（EnchantmentWeaponCoverageMixin）",
+                "net.minecraft.world.item.enchantment.Enchantment",
+                MixinMarkers.WeaponCoverageExpand.class)) {
             weaponCoverageExpandEnabled = false;
             missing++;
         }
-        boolean isMergableOk = checkDeclaredMethod("ItemEntity.isMergable",
-                net.minecraft.world.entity.item.ItemEntity.class, "isMergable") == 0;
-        boolean tryToMergeOk = checkDeclaredMethod("ItemEntity.tryToMerge",
-                net.minecraft.world.entity.item.ItemEntity.class, "tryToMerge",
-                net.minecraft.world.entity.item.ItemEntity.class) == 0;
-        if (!isMergableOk || !tryToMergeOk) {
-            multiStackMergeGuardEnabled = false;
+
+        // 铁砧由两个 Mixin 分工，各自独立落地；收尾 Mixin 另用反射取父类容器字段，与注入无关，需单独核对
+        boolean anvilRedirect = checkMarker("铁砧任意附魔/忽略互斥（AnvilMenuMixin）",
+                "net.minecraft.world.inventory.AnvilMenu",
+                MixinMarkers.AnvilAnyEnchantment.class);
+        boolean anvilFinalize = checkMarker("铁砧结果收尾（AnvilMenuFinalizerMixin）",
+                "net.minecraft.world.inventory.AnvilMenu",
+                MixinMarkers.AnvilResultFinalize.class);
+        boolean inputSlots = checkFieldPresent("ItemCombinerMenu.inputSlots",
+                "net.minecraft.world.inventory.ItemCombinerMenu", "inputSlots");
+        boolean resultSlots = checkFieldPresent("ItemCombinerMenu.resultSlots",
+                "net.minecraft.world.inventory.ItemCombinerMenu", "resultSlots");
+        boolean anvilFields = inputSlots && resultSlots;
+        if (!anvilRedirect || !anvilFinalize || !anvilFields) {
+            anvilFallbackEnabled = false;
             missing++;
         }
-        // 1.21.1 护甲减伤入口：CombatRules.getDamageAfterAbsorb(LivingEntity, float, DamageSource, float, float)
-        if (checkMethod("CombatRules.getDamageAfterAbsorb",
-                net.minecraft.world.damagesource.CombatRules.class,
-                "getDamageAfterAbsorb",
-                LivingEntity.class, float.class,
-                net.minecraft.world.damagesource.DamageSource.class, float.class, float.class) != 0) {
-            uncappedArmorEnabled = false;
+
+        if (!checkMarker("净化受击改写虚空（LivingEntityPurgeDamageMixin）",
+                "net.minecraft.world.entity.LivingEntity",
+                MixinMarkers.PurgeVoidRewrite.class)) {
+            purgeVoidRewriteEnabled = false;
+            missing++;
+        }
+        if (!checkMarker("净化拦效果写入（LivingEntityPurgeEffectMixin）",
+                "net.minecraft.world.entity.LivingEntity",
+                MixinMarkers.PurgeEffectWriteBlock.class)) {
+            purgeEffectBlockEnabled = false;
+            missing++;
+        }
+        if (!checkMarker("多合一防邻居合并（ItemEntityMergeGuardMixin）",
+                "net.minecraft.world.entity.item.ItemEntity",
+                MixinMarkers.MultiStackMergeGuard.class)) {
+            multiStackMergeGuardEnabled = false;
             missing++;
         }
 
         if (missing == 0) {
-            WenXingTools.LOGGER.info("[wenxingtools] mixin self-check OK: all injection targets present");
+            WenXingTools.LOGGER.info("[wenxingtools] mixin self-check OK: all mixin groups applied and marked");
         } else {
             WenXingTools.LOGGER.warn(
-                    "[wenxingtools] mixin self-check: {} target group(s) missing; related feature switches closed "
-                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={}, uncappedArmor={})",
+                    "[wenxingtools] mixin self-check: {} mixin group(s) not applied; related feature switches closed "
+                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={})",
                     missing, fixedMiningEnabled, flyMiningIgnoreEnabled, enchantNameOverrideEnabled, anvilFallbackEnabled,
-                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled,
-                    uncappedArmorEnabled);
-        }
-    }
-
-    private static int checkDeclaredMethod(String label, Class<?> owner, String name, Class<?>... params) {
-        try {
-            owner.getDeclaredMethod(name, params);
-            return 0;
-        } catch (NoSuchMethodException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {} ({})", label, e.toString());
-            return 1;
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
-            return 1;
-        }
-    }
-
-    private static int checkMethod(String label, Class<?> owner, String name, Class<?>... params) {
-        try {
-            if (resolveMethod(owner, name, params) == null) {
-                WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {}", label);
-                return 1;
-            }
-            return 0;
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
-            return 1;
+                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled);
         }
     }
 
     /**
-     * 与 Mixin 同口径查找：public（含继承与接口 default 方法）与 protected / 包私有声明都可被注入。
-     * 只认 {@code Class.getMethod} 会漏 protected（如 LivingEntity.actuallyHurt）；
-     * 只认 {@code getDeclaredMethod} 会漏接口注入（如 ItemStack.supportsEnchantment）——两款都会误关特性。
+     * 目标类上是否带着该 Mixin 的落地标记。
+     * <p>
+     * {@code Class.forName} 会触发目标类加载，从而让 Mixin 在此刻应用：标记在 ⇒ 该 Mixin 的全部注入点均已命中；
+     * 标记不在 ⇒ 该 Mixin 未应用（注入打空、或接口注入失败），调用方据此关闭对应特性。
      */
-    private static Method resolveMethod(Class<?> owner, String name, Class<?>... params) {
+    private static boolean checkMarker(String label, String targetClassName, Class<?> marker) {
+        Class<?> target;
         try {
-            return owner.getMethod(name, params);
-        } catch (NoSuchMethodException ignored) {
-            // 非 public：继续沿类层次查找声明
-        }
-        for (Class<?> cursor = owner; cursor != null && cursor != Object.class; cursor = cursor.getSuperclass()) {
-            try {
-                return cursor.getDeclaredMethod(name, params);
-            } catch (NoSuchMethodException ignored) {
-                // 沿父类继续查找
-            }
-        }
-        return null;
-    }
-
-    private static int checkStaticFullname() {
-        return checkStaticMethod("Enchantment.getFullname",
-                "Enchantment.getFullname is not static; EnchantmentMixin must use static callback",
-                "getFullname", net.minecraft.core.Holder.class, int.class);
-    }
-
-    private static int checkStaticAreCompatible() {
-        return checkStaticMethod("Enchantment.areCompatible",
-                "Enchantment.areCompatible is not static; AnvilMenuMixin redirect handler must match",
-                "areCompatible", net.minecraft.core.Holder.class, net.minecraft.core.Holder.class);
-    }
-
-    /** 校验目标方法存在且为 static（附魔全名/互斥判定在 1.21 均为 static，实例回调会启动崩溃）。 */
-    private static int checkStaticMethod(String label, String notStaticMessage, String name, Class<?>... params) {
-        try {
-            Method method = Enchantment.class.getDeclaredMethod(name, params);
-            if (!java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
-                WenXingTools.LOGGER.warn("[wenxingtools] {}", notStaticMessage);
-                return 1;
-            }
-            return 0;
-        } catch (NoSuchMethodException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target missing: {} ({})", label, e.toString());
-            return 1;
+            target = Class.forName(targetClassName);
         } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
-            return 1;
+            WenXingTools.LOGGER.warn("[wenxingtools] mixin target class unavailable: {} ({})", label, t.toString());
+            return false;
         }
+        if (marker.isAssignableFrom(target)) {
+            return true;
+        }
+        WenXingTools.LOGGER.warn("[wenxingtools] mixin not applied: {} (marker {} absent on {})",
+                label, marker.getSimpleName(), target.getName());
+        return false;
     }
 
-    private static int checkFieldPresent(String label, String className, String fieldName) {
+    /** 供 Mixin 自身反射访问的成员（与注入无关，需单独核对）。 */
+    private static boolean checkFieldPresent(String label, String className, String fieldName) {
         try {
-            Class<?> owner = Class.forName(className);
-            owner.getDeclaredField(fieldName);
-            return 0;
-        } catch (ClassNotFoundException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target class missing: {} ({})", label, e.toString());
-            return 1;
-        } catch (NoSuchFieldException e) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target field missing: {} ({})", label, e.toString());
-            return 1;
+            Class.forName(className).getDeclaredField(fieldName);
+            return true;
         } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] mixin target check failed: {} ({})", label, t.toString());
-            return 1;
+            WenXingTools.LOGGER.warn("[wenxingtools] reflective target missing: {} ({})", label, t.toString());
+            return false;
         }
     }
 }
