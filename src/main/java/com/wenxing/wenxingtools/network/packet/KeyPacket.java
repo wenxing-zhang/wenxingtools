@@ -107,8 +107,8 @@ public record KeyPacket(int key) implements CustomPacketPayload {
                     newState = !data.isFreedomCharacteristicOn();
                     data.setFreedomCharacteristic(newState);
                     if (!newState) {
-                        // 关闭当场回收飞行座（开关关闭后载具自身 tick 也会判，但这里立即生效）
-                        com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
+                        // 关闭当场收起飞行（开关关闭后下一刻 tick 也会判，但这里立即生效）
+                        com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
                     }
                     characteristicName = Component.translatable(newState
                             ? "msg.wenxingtools.freedom.on"

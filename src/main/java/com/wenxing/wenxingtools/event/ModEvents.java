@@ -4,6 +4,7 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.attachment.AuthorityAttachments;
 import com.wenxing.wenxingtools.attachment.AuthorityDataStorage;
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
+import com.wenxing.wenxingtools.entity.FreedomFlightService;
 import com.wenxing.wenxingtools.network.ModNetwork;
 import com.wenxing.wenxingtools.util.PermissionUtil;
 import net.minecraft.nbt.CompoundTag;
@@ -26,6 +27,11 @@ public final class ModEvents {
     public static void onPlayerCloned(PlayerEvent.Clone event) {
         // Authority 附件已通过 AttachmentType.copyOnDeath() 自动复制
         if (!event.getEntity().level().isClientSide && event.getEntity() instanceof ServerPlayer player) {
+            // 飞行态是瞬时状态，不随死亡克隆继承：否则重生瞬间会先向客户端同步一次「飞行中」
+            IAuthorityData data = AuthorityAttachments.getData(player);
+            if (data != null) {
+                data.setFreedomFlying(false);
+            }
             ModNetwork.syncAuthorityData(player);
         }
     }
@@ -46,6 +52,7 @@ public final class ModEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
+        FreedomFlightService.stopFlight(player);
         CharacteristicTickHandler.clearPlayerState(player.getUUID());
         PotionAmplificationHandler.clearPotionAmplificationPlayerState(player.getUUID());
         LifeAmplificationHandler.clearLifeAmplificationLevelState(player.getUUID());
@@ -58,7 +65,7 @@ public final class ModEvents {
         }
         if (!player.level().isClientSide) {
             ModNetwork.syncAuthorityData(player);
-            CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
+            FreedomFlightService.stopFlight(player);
         }
         AmplificationSyncCoordinator.reinitializePlayerAmplifications(player);
     }
@@ -70,7 +77,7 @@ public final class ModEvents {
         }
         if (!player.level().isClientSide) {
             ModNetwork.syncAuthorityData(player);
-            CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
+            FreedomFlightService.stopFlight(player);
         }
         AmplificationSyncCoordinator.reinitializePlayerAmplifications(player);
     }
@@ -118,6 +125,7 @@ public final class ModEvents {
         data.setInvincibleCharacteristic(false);
         data.setResourceCharacteristic(false);
         data.setFreedomCharacteristic(false);
+        data.setFreedomFlying(false);
         data.setKillAuraCharacteristic(false);
         data.clearDirty();
     }

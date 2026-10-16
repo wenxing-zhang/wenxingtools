@@ -157,11 +157,10 @@ public class ModCommands {
         if (data != null) {
             data.setFreedomCharacteristic(enable);
             if (!enable) {
-                // 关闭当场回收飞行座（与按键路径同一出口）
-                com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
+                // 关闭当场收起飞行（与按键路径同一出口）
+                com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
             }
-            sendToggleFeedback(player, "msg.wenxingtools.label.freedom", enable,
-                    enable ? Component.translatable("msg.wenxingtools.freedom.hint") : null);
+            sendToggleFeedback(player, "msg.wenxingtools.label.freedom", enable, null);
             ModNetwork.syncAuthorityData(player);
         }
         return 1;

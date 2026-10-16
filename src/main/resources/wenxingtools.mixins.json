@@ -12,9 +12,13 @@
     "LivingEntityPurgeEffectMixin",
     "PlayerDestroySpeedMixin",
     "BlockStateDestroyProgressMixin",
-    "ItemEntityMergeGuardMixin"
+    "ItemEntityMergeGuardMixin",
+    "PlayerFreedomFlightMixin",
+    "ServerFreedomFlightGuardMixin"
   ],
-  "client": [],
+  "client": [
+    "LocalPlayerFreedomFlightMixin"
+  ],
   "server": [],
   "injectors": {
     "defaultRequire": 1

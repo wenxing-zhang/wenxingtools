@@ -38,4 +38,16 @@ public final class MixinMarkers {
 
     public interface MultiStackMergeGuard {
     }
+
+    /** 自由飞行接入原版飞行代码路径（Player.travel / getFlyingSpeed 重定向） */
+    public interface FreedomFlightTravel {
+    }
+
+    /** 自由飞行客户端垂直输入（LocalPlayer.aiStep 注入） */
+    public interface FreedomFlightClient {
+    }
+
+    /** 自由飞行悬空检测豁免（ServerGamePacketListenerImpl.tick 注入） */
+    public interface FreedomFlightGuard {
+    }
 }

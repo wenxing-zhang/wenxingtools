@@ -38,9 +38,6 @@ public final class ClientEvents {
         @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.MULTI_STACK_ITEM.get(), ItemEntityRenderer::new);
-            // 飞行座不渲染（隐形载具）
-            event.registerEntityRenderer(ModEntities.FLIGHT_SEAT.get(),
-                    net.minecraft.client.renderer.entity.NoopRenderer::new);
         }
     }
 

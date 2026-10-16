@@ -30,6 +30,11 @@ public interface IAuthorityData {
 
     void setFreedomCharacteristic(boolean active);
 
+    /** 自由飞行是否处于飞行中（瞬时时态，不跨会话 / 死亡继承）。 */
+    boolean isFreedomFlying();
+
+    void setFreedomFlying(boolean flying);
+
     boolean isKillAuraCharacteristicOn();
 
     void setKillAuraCharacteristic(boolean active);

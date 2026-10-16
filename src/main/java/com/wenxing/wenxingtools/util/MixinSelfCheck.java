@@ -34,6 +34,8 @@ public final class MixinSelfCheck {
     private static volatile boolean weaponCoverageExpandEnabled = true;
     /** MultiStack 防邻居合并（ItemEntityMergeGuardMixin） */
     private static volatile boolean multiStackMergeGuardEnabled = true;
+    /** 自由飞行（Player/LocalPlayer 飞行路径接入 + 服务端悬空豁免，三个 Mixin 合为一组开关） */
+    private static volatile boolean freedomFlightEnabled = true;
 
     public static boolean isFixedMiningEnabled() {
         return fixedMiningEnabled;
@@ -65,6 +67,10 @@ public final class MixinSelfCheck {
 
     public static boolean isMultiStackMergeGuardEnabled() {
         return multiStackMergeGuardEnabled;
+    }
+
+    public static boolean isFreedomFlightEnabled() {
+        return freedomFlightEnabled;
     }
 
     public static void run() {
@@ -131,14 +137,34 @@ public final class MixinSelfCheck {
             missing++;
         }
 
+        // 自由飞行由三个 Mixin 共同构成完整链路，任一缺失都不成立；客户端 Mixin 只在客户端侧核对，
+        // 否则专用服务端上「目标类未加载导致标记缺失」会被误判为打空。
+        boolean freedomTravel = checkMarker("自由飞行-原版飞行路径接入（PlayerFreedomFlightMixin）",
+                "net.minecraft.world.entity.player.Player",
+                MixinMarkers.FreedomFlightTravel.class);
+        boolean freedomGuard = checkMarker("自由飞行-悬空检测豁免（ServerFreedomFlightGuardMixin）",
+                "net.minecraft.server.network.ServerGamePacketListenerImpl",
+                MixinMarkers.FreedomFlightGuard.class);
+        boolean freedomClient = true;
+        if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient()) {
+            freedomClient = checkMarker("自由飞行-客户端垂直输入（LocalPlayerFreedomFlightMixin）",
+                    "net.minecraft.client.player.LocalPlayer",
+                    MixinMarkers.FreedomFlightClient.class);
+        }
+        if (!freedomTravel || !freedomGuard || !freedomClient) {
+            freedomFlightEnabled = false;
+            missing++;
+        }
+
         if (missing == 0) {
             WenXingTools.LOGGER.info("[wenxingtools] mixin self-check OK: all mixin groups applied and marked");
         } else {
             WenXingTools.LOGGER.warn(
                     "[wenxingtools] mixin self-check: {} mixin group(s) not applied; related feature switches closed "
-                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={})",
+                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={}, freedomFlight={})",
                     missing, fixedMiningEnabled, flyMiningIgnoreEnabled, enchantNameOverrideEnabled, anvilFallbackEnabled,
-                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled);
+                    purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled,
+                    freedomFlightEnabled);
         }
     }
 

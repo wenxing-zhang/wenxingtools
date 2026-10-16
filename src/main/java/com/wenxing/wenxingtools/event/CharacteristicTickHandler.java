@@ -3,11 +3,9 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.attachment.AuthorityAttachments;
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
-import com.wenxing.wenxingtools.entity.FlightSeatEntity;
-import com.wenxing.wenxingtools.entity.FlightSeatInputStore;
-import com.wenxing.wenxingtools.entity.FlightSeatService;
+import com.wenxing.wenxingtools.entity.FreedomFlightService;
 import com.wenxing.wenxingtools.network.ModNetwork;
-import com.wenxing.wenxingtools.network.packet.FlightSummonPacket;
+import com.wenxing.wenxingtools.network.packet.FlightTogglePacket;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.PermissionUtil;
 import net.minecraft.ChatFormatting;
@@ -28,16 +26,8 @@ public final class CharacteristicTickHandler {
         if (playerId == null) {
             return;
         }
-        FlightSeatInputStore.clear(playerId);
-        FlightSummonPacket.clearCooldown(playerId);
-    }
-
-    /** 切维 / 重生后回收飞行座残留——载具不跨维度，旧实例不回收会留下无人骑乘的孤儿实体。 */
-    public static void reclaimFlightSeatAfterWorldChange(ServerPlayer player) {
-        if (player == null) {
-            return;
-        }
-        FlightSeatService.dismountAndDiscard(player);
+        FreedomFlightService.clearPlayerState(playerId);
+        FlightTogglePacket.clearCooldown(playerId);
     }
 
     @SubscribeEvent
@@ -65,7 +55,10 @@ public final class CharacteristicTickHandler {
             if (player.invulnerableTime > 20) {
                 player.invulnerableTime = 0;
             }
-            reclaimSeatIfRiding(player);
+            // 未飞行时无须触碰权威数据（stopFlight 内的同步对每刻每玩家都是白付）
+            if (data.isFreedomFlying()) {
+                FreedomFlightService.stopFlight(player);
+            }
             return;
         }
 
@@ -112,15 +105,7 @@ public final class CharacteristicTickHandler {
             }
         }
 
-        // 开关关闭或失权自动关：回收飞行座（载具自身 tick 也会判一次，此处兜住未 tick 的情形）
-        if (!PermissionUtil.isFreedomCharacteristicActiveOrRevoke(sPlayer, data, hasPermission)) {
-            reclaimSeatIfRiding(player);
-        }
-    }
-
-    private static void reclaimSeatIfRiding(Player player) {
-        if (player.getVehicle() instanceof FlightSeatEntity) {
-            FlightSeatService.dismountAndDiscard(player);
-        }
+        // 自由飞行：开关关闭或失权自动收起；贴地满 5 刻收起（服务端权威）
+        FreedomFlightService.maintainFlight(sPlayer, data);
     }
 }

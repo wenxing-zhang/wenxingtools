@@ -4,8 +4,7 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.attachment.AuthorityAttachments;
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
 import com.wenxing.wenxingtools.network.packet.AuthorityDataSyncPacket;
-import com.wenxing.wenxingtools.network.packet.FlightInputPacket;
-import com.wenxing.wenxingtools.network.packet.FlightSummonPacket;
+import com.wenxing.wenxingtools.network.packet.FlightTogglePacket;
 import com.wenxing.wenxingtools.network.packet.KeyPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -17,14 +16,13 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 public final class ModNetwork {
     private ModNetwork() {}
 
-    public static final String PROTOCOL_VERSION = "3";
+    public static final String PROTOCOL_VERSION = "4";
 
     @SubscribeEvent
     public static void register(RegisterPayloadHandlersEvent event) {
         var registrar = event.registrar(PROTOCOL_VERSION);
         registrar.playToServer(KeyPacket.TYPE, KeyPacket.STREAM_CODEC, KeyPacket::handle);
-        registrar.playToServer(FlightInputPacket.TYPE, FlightInputPacket.STREAM_CODEC, FlightInputPacket::handle);
-        registrar.playToServer(FlightSummonPacket.TYPE, FlightSummonPacket.STREAM_CODEC, FlightSummonPacket::handle);
+        registrar.playToServer(FlightTogglePacket.TYPE, FlightTogglePacket.STREAM_CODEC, FlightTogglePacket::handle);
         registrar.playToClient(AuthorityDataSyncPacket.TYPE, AuthorityDataSyncPacket.STREAM_CODEC, AuthorityDataSyncPacket::handle);
     }
 

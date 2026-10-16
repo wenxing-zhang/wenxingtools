@@ -1,7 +1,7 @@
 package com.wenxing.wenxingtools.network.packet;
 
 import com.wenxing.wenxingtools.WenXingTools;
-import com.wenxing.wenxingtools.entity.FlightSeatService;
+import com.wenxing.wenxingtools.entity.FreedomFlightService;
 import com.wenxing.wenxingtools.util.PermissionUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -14,14 +14,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** 客户端双击跳跃触发的飞行座开关（召唤 / 收起）。 */
-public record FlightSummonPacket() implements CustomPacketPayload {
+/** 客户端双击跳跃触发的自由飞行开关（起飞 / 收起）。 */
+public record FlightTogglePacket() implements CustomPacketPayload {
 
-    public static final CustomPacketPayload.Type<FlightSummonPacket> TYPE =
-            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WenXingTools.MODID, "flight_summon"));
+    public static final CustomPacketPayload.Type<FlightTogglePacket> TYPE =
+            new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(WenXingTools.MODID, "flight_toggle"));
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, FlightSummonPacket> STREAM_CODEC =
-            StreamCodec.unit(new FlightSummonPacket());
+    public static final StreamCodec<RegistryFriendlyByteBuf, FlightTogglePacket> STREAM_CODEC =
+            StreamCodec.unit(new FlightTogglePacket());
 
     private static final long COOLDOWN_MS = 250L;
     private static final Map<UUID, Long> LAST_TOGGLE_MS = new ConcurrentHashMap<>();
@@ -37,7 +37,7 @@ public record FlightSummonPacket() implements CustomPacketPayload {
         return TYPE;
     }
 
-    public static void handle(FlightSummonPacket msg, IPayloadContext context) {
+    public static void handle(FlightTogglePacket msg, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) {
                 return;
@@ -51,7 +51,7 @@ public record FlightSummonPacket() implements CustomPacketPayload {
                 return;
             }
             LAST_TOGGLE_MS.put(player.getUUID(), now);
-            FlightSeatService.toggle(player);
+            FreedomFlightService.toggle(player);
         });
     }
 }
