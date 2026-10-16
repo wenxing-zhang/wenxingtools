@@ -58,6 +58,7 @@ public final class DamageCapBypass {
     private static final Map<Class<?>, UnclampedSetter[]> SETTER_CACHE = new ConcurrentHashMap<>();
     private static final Map<Class<?>, Field[]> COOLDOWN_CACHE = new ConcurrentHashMap<>();
     private static final Map<Class<?>, Optional<Field>> ACCUMULATED_FIELD_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Field[]> HEALTH_FIELD_CACHE = new ConcurrentHashMap<>();
 
     /** 按可入账上限分片扣血，返回实际扣血量。不改事件金额、不叠伤。 */
     public static float applyDamageCapAwareTrueDamage(Player attacker, LivingEntity target, float amount) {
@@ -207,6 +208,7 @@ public final class DamageCapBypass {
 
     private static float readFloatField(Field field, Object owner) {
         try {
+            field.setAccessible(true);
             Object value = field.get(owner);
             if (value instanceof Float f) {
                 return f;
@@ -393,21 +395,14 @@ public final class DamageCapBypass {
         if (target == null || !(amount > 0.0f)) {
             return 0.0f;
         }
-        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
-        List<Field> fields = new ArrayList<>();
-        int depth = 0;
-        for (Class<?> c = target.getClass(); c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
-            for (Field f : c.getDeclaredFields()) {
-                if (Modifier.isStatic(f.getModifiers()) || f.getType() != float.class) {
-                    continue;
-                }
-                snapshots.add(new HealthStateProbe.FieldSnapshot(
-                        f.getName(), HealthStateProbe.NumericKind.FLOAT, readFloatField(f, target), depth));
-                fields.add(f);
-            }
-        }
-        if (snapshots.isEmpty()) {
+        Field[] candidates = healthFieldsFor(target.getClass());
+        if (candidates.length == 0) {
             return 0.0f;
+        }
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>(candidates.length);
+        for (Field f : candidates) {
+            snapshots.add(new HealthStateProbe.FieldSnapshot(
+                    f.getName(), HealthStateProbe.NumericKind.FLOAT, readFloatField(f, target), 0));
         }
         double maxHealth = target.getMaxHealth();
         int strong = HealthStateProbe.strongHealthFieldCount(snapshots, maxHealth);
@@ -417,15 +412,35 @@ public final class DamageCapBypass {
         List<Integer> ordered = HealthStateProbe.selectHealthFieldCandidates(snapshots, maxHealth);
         float totalDealt = 0.0f;
         for (int i = 0; i < strong && i < ordered.size() && totalDealt <= EPS; i++) {
-            Field f = fields.get(ordered.get(i));
-            try {
-                f.setAccessible(true);
-            } catch (Throwable ignored) {
-                continue;
-            }
-            totalDealt += writeFieldChunked(target, f, Math.max(0.0f, amount - totalDealt));
+            totalDealt += writeFieldChunked(target, candidates[ordered.get(i)], Math.max(0.0f, amount - totalDealt));
         }
         return totalDealt;
+    }
+
+    /**
+     * 疑似血量字段的只读候选列表（每个类只枚举一次）。
+     *
+     * <p>扫到 {@code Object} 为止——父类 {@code health} 正是 vanilla 目标的真实血量字段，
+     * 排除它会让「setHealth 被 override 拒写」这一通道 A 的主场景直接失效。写入是否有效仍由闭环裁决。</p>
+     */
+    private static Field[] healthFieldsFor(Class<?> type) {
+        return HEALTH_FIELD_CACHE.computeIfAbsent(type, t -> {
+            List<Field> found = new ArrayList<>();
+            for (Class<?> c = t; c != null && c != Object.class; c = c.getSuperclass()) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (Modifier.isStatic(f.getModifiers()) || f.getType() != float.class) {
+                        continue;
+                    }
+                    try {
+                        f.setAccessible(true);
+                    } catch (Throwable ignored) {
+                        continue;
+                    }
+                    found.add(f);
+                }
+            }
+            return found.toArray(new Field[0]);
+        });
     }
 
     /** 对单个疑似血量字段分片写入；每次写入都闭环验证，无进展即写回原值。 */

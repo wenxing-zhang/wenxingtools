@@ -117,18 +117,17 @@ public final class HealthStateProbe {
             if (containsAny(f.name(), NOT_HEALTH_HINTS)) {
                 continue;
             }
+            boolean strong = containsAny(f.name(), HEALTH_HINTS);
             int score = 0;
-            if (containsAny(f.name(), HEALTH_HINTS)) {
-                score += 4;
-            }
             if (v < maxHealth - 1.0e-3d) {
                 score += 2;
             }
             score -= Math.min(Math.max(f.depth(), 0), 4);
-            scored.add(new int[]{i, score, Math.max(f.depth(), 0)});
+            scored.add(new int[]{i, strong ? 1 : 0, score, Math.max(f.depth(), 0)});
         }
         scored.sort(Comparator.<int[]>comparingInt(a -> -a[1])
-                .thenComparingInt(a -> a[2])
+                .thenComparingInt(a -> -a[2])
+                .thenComparingInt(a -> a[3])
                 .thenComparingInt(a -> a[0]));
         for (int[] s : scored) {
             result.add(s[0]);
@@ -239,9 +238,10 @@ public final class HealthStateProbe {
             "cooldown", "immun", "invuln", "hurtresist", "damagereduc", "lastdamage", "lasthurt"
     };
 
-    private static final String[] ACCUMULATED_DAMAGE_HINTS = {
-            "totaldamagetaken", "accumulat", "damagetaken", "damagetotal", "totaldamage"
-    };
+    private static final String[] ACCUMULATED_DAMAGE_HINTS = {"damagetaken"};
+
+    /** 名字命中这些词根的字段是「造成的伤害」而非「承受的伤害」，不能当观测口。 */
+    private static final String[] ACCUMULATED_DAMAGE_EXCLUDES = {"dealt", "output", "inflicted"};
 
     private static final String[] ADD_DAMAGE_HINTS = {
             "adddamage", "applydamage", "damagedirect", "realdamage"
@@ -256,9 +256,25 @@ public final class HealthStateProbe {
         return selectNumericFieldsByHints(fields, COOLDOWN_HINTS);
     }
 
-    /** 从字段快照里挑出「累计承受伤害」语义的候选下标，供血量不落在 {@code getHealth} 上的目标降级使用。 */
+    /**
+     * 从字段快照里挑出「累计承受伤害」语义的候选下标，供血量不落在 {@code getHealth} 上的目标降级使用。
+     *
+     * <p>只认含 {@code damageTaken} 的名字，并排除 {@code dealt}/{@code output}/{@code inflicted}
+     * ——误选「造成的伤害」会让闭环把攻击行为本身当成扣血成功，虚增结算量。</p>
+     */
     public static List<Integer> selectAccumulatedDamageFieldCandidates(List<FieldSnapshot> fields) {
-        return selectNumericFieldsByHints(fields, ACCUMULATED_DAMAGE_HINTS);
+        List<Integer> picked = selectNumericFieldsByHints(fields, ACCUMULATED_DAMAGE_HINTS);
+        if (picked.isEmpty()) {
+            return picked;
+        }
+        List<Integer> filtered = new ArrayList<>();
+        for (int idx : picked) {
+            FieldSnapshot f = fields.get(idx);
+            if (f != null && !containsAny(f.name(), ACCUMULATED_DAMAGE_EXCLUDES)) {
+                filtered.add(idx);
+            }
+        }
+        return filtered;
     }
 
     /** 从方法快照里挑出「直接加伤」语义的候选下标（第三方自定义血量通道）。 */
