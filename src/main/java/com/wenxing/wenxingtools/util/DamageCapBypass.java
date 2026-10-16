@@ -495,41 +495,20 @@ public final class DamageCapBypass {
 
     /**
      * 伤害源枚举：部分目标按 {@code DamageType} 白名单免钳，换源即可绕过。
-     * <p>顺序固定为 generic_kill（已知对无名者免钳）→ out_of_world → 本 mod infinity_kill。</p>
+     * <p>顺序固定为 generic_kill（已知对无名者免钳）→ out_of_world → 本 mod infinity_kill。
+     * 后两档复用 {@link CombatUtil} 的集中构造点（与回响 / 净化 / 必杀链同一路径），
+     * 不在此另造一份——{@code infinity_kill} 注册或降级策略改动时只需改一处。</p>
      */
     public static DamageSource createBypassSource(Player attacker, LivingEntity target, int index) {
+        if (!(attacker instanceof ServerPlayer sp)) {
+            return null;
+        }
         return switch (index) {
             case 0 -> createGenericKillSource(attacker, target);
-            case 1 -> createOutOfWorldSource(attacker, target);
-            case 2 -> createInfinityKillSource(attacker, target);
+            case 1 -> CombatUtil.createVanillaOutOfWorldSource(sp);
+            case 2 -> CombatUtil.createInfinityKillSource(sp);
             default -> null;
         };
-    }
-
-    /** 原版 {@code out_of_world} 玩家归属伤害源（自带虚空归属）。 */
-    public static DamageSource createOutOfWorldSource(Player attacker, LivingEntity target) {
-        try {
-            if (attacker instanceof ServerPlayer sp) {
-                return sp.damageSources().source(DamageTypes.FELL_OUT_OF_WORLD, sp);
-            }
-            if (attacker != null) {
-                return attacker.damageSources().source(DamageTypes.FELL_OUT_OF_WORLD, attacker);
-            }
-            if (target != null) {
-                return target.damageSources().fellOutOfWorld();
-            }
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.debug("[damage_cap_bypass] out_of_world source failed: {}", t.toString());
-        }
-        return null;
-    }
-
-    /** 本 mod {@code infinity_kill} 玩家归属伤害源（自带虚空归属，保留攻击者实体）。 */
-    public static DamageSource createInfinityKillSource(Player attacker, LivingEntity target) {
-        if (attacker instanceof ServerPlayer sp) {
-            return CombatUtil.createInfinityKillSource(sp);
-        }
-        return null;
     }
 
     private static void clearDamageCooldowns(LivingEntity target) {

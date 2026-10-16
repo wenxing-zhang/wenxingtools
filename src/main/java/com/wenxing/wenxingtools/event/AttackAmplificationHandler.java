@@ -109,14 +109,23 @@ public final class AttackAmplificationHandler {
             return;
         }
 
+        // 低血：走必杀链；未死再退回旁路真伤（姊妹端口径：溢出量一并计入吸血）
+        float healthBeforeKill = target.getHealth();
         CombatUtil.applyDirectKill(serverPlayer, target);
-        float after = target.getHealth();
-        float actualDealt = Math.max(0.0f, before - after);
-        if (actualDealt <= 0.0f) {
-            foldIntoEvent(event, percentDamage);
-            actualDealt = percentDamage;
+        float dealt;
+        if (target.isDeadOrDying() || target.isRemoved() || target.getHealth() <= 0.0f) {
+            dealt = healthBeforeKill;
+        } else {
+            dealt = CombatUtil.applyBypassTrueDamage(serverPlayer, target, percentDamage);
+            if (dealt <= 0.0f) {
+                foldIntoEvent(event, percentDamage);
+                dealt = percentDamage;
+            }
         }
-        CombatUtil.healByActualDealt(player, actualDealt);
+        if (dealt > 0.0f) {
+            float leftover = Math.max(0.0f, percentDamage - before);
+            CombatUtil.healByActualDealt(player, dealt + leftover);
+        }
     }
 
     /** 旁路全失败：并入事件金额，与旁路真伤互斥，避免叠伤。 */
