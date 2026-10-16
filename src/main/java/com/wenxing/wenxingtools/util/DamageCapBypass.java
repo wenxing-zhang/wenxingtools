@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>策略（按序降级，累计真实掉血）：</p>
  * <ol>
  *   <li>分片 {@code setHealth}：单次被钳制则继续扣下一片，直至扣满目标量</li>
- *   <li>反射无钳制 setter（{@code setHpoint}/{@code setVanillaHealth}/{@code setCombatHealth} 等）</li>
+ *   <li>反射无钳制 setter：先按已知名快速命中，未命中再按「无返回 + 单数值参 + 名字含血量词根」枚举候选</li>
  *   <li>清伤害冷却字段后，以 {@code GENERIC_KILL} + 玩家归属 {@code hurt} 兜底</li>
  * </ol>
  */
@@ -87,7 +87,64 @@ public final class DamageCapBypass {
         }
 
         totalDealt += drainViaGenericKillHurt(attacker, target, remaining);
+
+        if (totalDealt <= EPS && WenXingTools.LOGGER.isDebugEnabled()) {
+            logHealthFieldDiagnostics(target);
+        }
         return totalDealt;
+    }
+
+    /**
+     * 所有通道都扣不动时的只读诊断：列出疑似承载血量的字段，供定位「需要主动适配」的目标。
+     * <p>只在 debug 日志开启时执行——热路径不因诊断付反射开销。</p>
+     */
+    private static void logHealthFieldDiagnostics(LivingEntity target) {
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = target.getClass(); c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(f.getType());
+                if (!HealthStateProbe.isHealthMagnitude(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.FieldSnapshot(f.getName(), kind, readFieldDouble(f, target), depth));
+            }
+        }
+        double maxHealth = target.getMaxHealth();
+        List<Integer> ordered = HealthStateProbe.selectHealthFieldCandidates(snapshots, maxHealth);
+        List<String> suspects = new ArrayList<>();
+        for (int i = 0; i < Math.min(ordered.size(), 5); i++) {
+            suspects.add(snapshots.get(ordered.get(i)).name());
+        }
+        WenXingTools.LOGGER.debug(
+                "[damage_cap_bypass] no progress on {} (health={}, maxHealth={}); suspect health fields={} strong={}",
+                target.getClass().getName(), target.getHealth(), maxHealth,
+                suspects, HealthStateProbe.strongHealthFieldCount(snapshots, maxHealth));
+    }
+
+    private static double readFieldDouble(Field field, Object owner) {
+        try {
+            field.setAccessible(true);
+            Object value = field.get(owner);
+            if (value instanceof Float f) {
+                return f.doubleValue();
+            }
+            if (value instanceof Double d) {
+                return d;
+            }
+            if (value instanceof Integer i) {
+                return i.doubleValue();
+            }
+            if (value instanceof Long l) {
+                return l.doubleValue();
+            }
+        } catch (Throwable ignored) {
+            // 不可读
+        }
+        return 0.0d;
     }
 
     /** 将目标血量压到 0（击杀路径）。尊重单次钳制，分片清空。 */
@@ -116,13 +173,18 @@ public final class DamageCapBypass {
     private static float drainViaChunkedSetHealth(LivingEntity target, float amount) {
         float totalDealt = 0.0f;
         float remaining = amount;
+        double observedCap = 0.0d;
         int guard = MAX_CHUNKS;
         while (remaining > EPS && guard-- > 0 && target.isAlive()) {
             float before = target.getHealth();
             if (!(before > 0.0f) || Float.isNaN(before)) {
                 break;
             }
-            float chunk = Math.min(remaining, before);
+            double[] plan = HealthStateProbe.planChunks(remaining, observedCap);
+            if (plan.length == 0) {
+                break;
+            }
+            float chunk = (float) Math.min(plan[0], before);
             target.setHealth(before - chunk);
             float after = target.getHealth();
             if (Float.isNaN(after)) {
@@ -137,6 +199,7 @@ public final class DamageCapBypass {
             }
             totalDealt += lost;
             remaining -= lost;
+            observedCap = HealthStateProbe.inferObservedCap(chunk, lost);
         }
         return totalDealt;
     }
@@ -187,16 +250,34 @@ public final class DamageCapBypass {
         return totalDealt;
     }
 
+    /** 伤害源枚举总档数：generic_kill → out_of_world → infinity_kill。 */
+    public static final int BYPASS_SOURCE_COUNT = 3;
+
     private static float drainViaGenericKillHurt(Player attacker, LivingEntity target, float amount) {
         if (!(amount > 0.0f) || !target.isAlive()) {
             return 0.0f;
         }
-        DamageSource source = createGenericKillSource(attacker, target);
-        if (source == null) {
-            return 0.0f;
+        float totalDealt = 0.0f;
+        int tried = 0;
+        int index = HealthStateProbe.nextUntriedSource(tried, BYPASS_SOURCE_COUNT);
+        while (index >= 0) {
+            tried |= (1 << index);
+            float remaining = Math.max(0.0f, amount - totalDealt);
+            if (remaining <= EPS || !target.isAlive()) {
+                break;
+            }
+            DamageSource source = createBypassSource(attacker, target, index);
+            if (source != null) {
+                totalDealt += drainWithSource(target, source, remaining);
+            }
+            index = HealthStateProbe.nextUntriedSource(tried, BYPASS_SOURCE_COUNT);
         }
-        clearDamageCooldowns(target);
+        return totalDealt;
+    }
 
+    /** 单源分片入账：每次清冷却后打一片，按真实掉血累计，直到扣满或不再掉血。 */
+    private static float drainWithSource(LivingEntity target, DamageSource source, float amount) {
+        clearDamageCooldowns(target);
         float totalDealt = 0.0f;
         float remaining = amount;
         int guard = MAX_CHUNKS;
@@ -229,6 +310,24 @@ public final class DamageCapBypass {
 
     /** GENERIC_KILL 玩家归属伤害源：无名者对 GENERIC_KILL 免钳，且保留击杀归属。 */
     public static DamageSource createGenericKillSource(Player attacker, LivingEntity target) {
+        return sourceFor(attacker, target, DamageTypes.GENERIC_KILL);
+    }
+
+    /**
+     * 伤害源枚举：部分目标按 {@code DamageType} 白名单免钳，换源即可绕过。
+     * <p>顺序固定为 generic_kill（已知对无名者免钳）→ out_of_world → 本 mod infinity_kill。</p>
+     */
+    public static DamageSource createBypassSource(Player attacker, LivingEntity target, int index) {
+        return switch (index) {
+            case 0 -> sourceFor(attacker, target, DamageTypes.GENERIC_KILL);
+            case 1 -> sourceFor(attacker, target, CombatUtil.VANILLA_OUT_OF_WORLD);
+            case 2 -> sourceFor(attacker, target, CombatUtil.INFINITY_KILL);
+            default -> null;
+        };
+    }
+
+    private static DamageSource sourceFor(Player attacker, LivingEntity target,
+                                          net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> typeKey) {
         try {
             net.minecraft.world.level.Level level = attacker != null ? attacker.level()
                     : (target != null ? target.level() : null);
@@ -237,13 +336,13 @@ public final class DamageCapBypass {
             }
             var holder = level.registryAccess()
                     .registryOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
-                    .getHolderOrThrow(DamageTypes.GENERIC_KILL);
+                    .getHolderOrThrow(typeKey);
             if (attacker != null) {
                 return new DamageSource(holder, attacker);
             }
             return new DamageSource(holder);
         } catch (Throwable t) {
-            WenXingTools.LOGGER.debug("[damage_cap_bypass] generic_kill source failed: {}", t.toString());
+            WenXingTools.LOGGER.debug("[damage_cap_bypass] source {} failed: {}", typeKey.location(), t.toString());
             return null;
         }
     }
@@ -273,38 +372,101 @@ public final class DamageCapBypass {
 
     private record UnclampedSetter(Method method) {
         void invoke(LivingEntity target, float health) throws Throwable {
-            method.invoke(target, health);
+            Class<?> param = method.getParameterTypes()[0];
+            Object arg;
+            if (param == float.class) {
+                arg = health;
+            } else if (param == double.class) {
+                arg = (double) health;
+            } else if (param == int.class) {
+                arg = (int) Math.round(health);
+            } else {
+                return;
+            }
+            method.invoke(target, arg);
         }
     }
 
     private static UnclampedSetter[] settersFor(Class<?> type) {
         return SETTER_CACHE.computeIfAbsent(type, t -> {
             List<UnclampedSetter> found = new ArrayList<>();
-            Class<?> c = t;
-            while (c != null && c != Object.class && c != LivingEntity.class) {
+            for (Class<?> c = t; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass()) {
                 for (String name : UNCLAMPED_SETTER_NAMES) {
-                    try {
-                        Method m = c.getDeclaredMethod(name, float.class);
-                        if (Modifier.isStatic(m.getModifiers())) {
-                            continue;
-                        }
-                        m.setAccessible(true);
+                    Method m = declaredNumericSetter(c, name);
+                    if (m != null) {
                         found.add(new UnclampedSetter(m));
-                    } catch (NoSuchMethodException ignored) {
-                        // next
                     }
                 }
-                c = c.getSuperclass();
             }
+            if (!found.isEmpty()) {
+                return found.toArray(new UnclampedSetter[0]);
+            }
+            found.addAll(discoveredSetters(t));
             return found.toArray(new UnclampedSetter[0]);
         });
+    }
+
+    /** 已知名快速路径：先试 {@code (float)} 再试 {@code (double)}。 */
+    private static Method declaredNumericSetter(Class<?> owner, String name) {
+        for (Class<?> param : new Class<?>[]{float.class, double.class}) {
+            try {
+                Method m = owner.getDeclaredMethod(name, param);
+                if (!Modifier.isStatic(m.getModifiers())) {
+                    m.setAccessible(true);
+                    return m;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // 试下一种签名
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 兜底：按类层次枚举「无返回 + 单数值参 + 名字含血量词根」的候选，由纯逻辑排序后逐个试调。
+     * <p>只在已知名全部 miss 时启用，且调用方 {@code drainViaUnclampedSetters} 会逐候选闭环验证
+     * （调用后 {@code getHealth} 未下降就换下一个），因此试调无副作用的候选不会被采用。</p>
+     */
+    private static List<UnclampedSetter> discoveredSetters(Class<?> type) {
+        List<HealthStateProbe.MethodSnapshot> snapshots = new ArrayList<>();
+        List<Method> methods = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Method m : c.getDeclaredMethods()) {
+                if (Modifier.isStatic(m.getModifiers()) || Modifier.isAbstract(m.getModifiers())) {
+                    continue;
+                }
+                if (m.getReturnType() != void.class || m.getParameterCount() != 1) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(m.getParameterTypes()[0]);
+                if (!HealthStateProbe.isHealthMagnitude(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.MethodSnapshot(m.getName(), kind, true, depth));
+                methods.add(m);
+            }
+        }
+        if (snapshots.isEmpty()) {
+            return List.of();
+        }
+        List<UnclampedSetter> result = new ArrayList<>();
+        for (int idx : HealthStateProbe.selectSetterCandidates(snapshots, UNCLAMPED_SETTER_NAMES)) {
+            Method m = methods.get(idx);
+            try {
+                m.setAccessible(true);
+            } catch (Throwable ignored) {
+                continue;
+            }
+            result.add(new UnclampedSetter(m));
+        }
+        return result;
     }
 
     private static Field[] cooldownFieldsFor(Class<?> type) {
         return COOLDOWN_CACHE.computeIfAbsent(type, t -> {
             List<Field> found = new ArrayList<>();
-            Class<?> c = t;
-            while (c != null && c != Object.class && c != LivingEntity.class) {
+            for (Class<?> c = t; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass()) {
                 for (String name : COOLDOWN_FIELD_NAMES) {
                     try {
                         Field f = c.getDeclaredField(name);
@@ -314,12 +476,53 @@ public final class DamageCapBypass {
                         f.setAccessible(true);
                         found.add(f);
                     } catch (NoSuchFieldException ignored) {
-                        // next
+                        // 试下一个名
                     }
                 }
-                c = c.getSuperclass();
             }
+            if (!found.isEmpty()) {
+                return found.toArray(new Field[0]);
+            }
+            found.addAll(discoveredCooldownFields(t));
             return found.toArray(new Field[0]);
         });
+    }
+
+    /** 兜底：按「名字含冷却 / 无敌帧词根」枚举数值字段——清零是有副作用的写，故只认明确语义。 */
+    private static List<Field> discoveredCooldownFields(Class<?> type) {
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+        List<Field> fields = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(f.getType());
+                if (!HealthStateProbe.isNumeric(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.FieldSnapshot(f.getName(), kind, 0.0d, depth));
+                fields.add(f);
+            }
+        }
+        if (snapshots.isEmpty()) {
+            return List.of();
+        }
+        List<Field> result = new ArrayList<>();
+        for (int idx : HealthStateProbe.selectCooldownFieldCandidates(snapshots)) {
+            Field f = fields.get(idx);
+            try {
+                f.setAccessible(true);
+            } catch (Throwable ignored) {
+                continue;
+            }
+            result.add(f);
+        }
+        return result;
+    }
+
+    private static HealthStateProbe.NumericKind numericKindOf(Class<?> type) {
+        return HealthStateProbe.numericKindOf(type);
     }
 }

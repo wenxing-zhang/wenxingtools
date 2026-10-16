@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.DamageCapBypass;
+import com.wenxing.wenxingtools.util.HealthStateProbe;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
@@ -14,6 +15,9 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -199,9 +203,9 @@ public final class AttackAmplificationEvents {
         float desired = Math.max(0.0f, before - amount);
         target.setHealth(desired);
         float after = target.getHealth();
-        float hpLost = before - after;
-        if (hpLost > 1.0e-4f) {
-            return hpLost;
+        double hpLost = HealthStateProbe.observedLoss(before, 0.0d, after, 0.0d, !target.isAlive());
+        if (hpLost > 1.0e-4d) {
+            return (float) hpLost;
         }
 
         // 2) 反射 addDamage / totalDamageTaken
@@ -295,8 +299,47 @@ public final class AttackAmplificationEvents {
                 }
                 c = c.getSuperclass();
             }
-            return Optional.empty();
+            AddDamageAccessor discovered = discoveredAddDamageAccessor(t);
+            return discovered == null ? Optional.empty() : Optional.of(discovered);
         }).orElse(null);
+    }
+
+    /**
+     * 已知名 miss 时的兜底：按「名字含 addDamage / applyDamage / realDamage / damageDirect 词根」枚举方法。
+     * 只返回第一个候选——名字语义限定得很窄，避免误调无关的伤害方法。
+     */
+    private static AddDamageAccessor discoveredAddDamageAccessor(Class<?> type) {
+        List<HealthStateProbe.MethodSnapshot> snapshots = new ArrayList<>();
+        List<Method> methods = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass(), depth++) {
+            for (Method m : c.getDeclaredMethods()) {
+                if (Modifier.isStatic(m.getModifiers()) || Modifier.isAbstract(m.getModifiers())) {
+                    continue;
+                }
+                if (m.getParameterCount() < 1 || m.getParameterCount() > 2) {
+                    continue;
+                }
+                Class<?>[] params = m.getParameterTypes();
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(params[0]);
+                if (!HealthStateProbe.isNumeric(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.MethodSnapshot(m.getName(), kind, m.getReturnType() == void.class, depth));
+                methods.add(m);
+            }
+        }
+        for (int idx : HealthStateProbe.selectAddDamageMethodCandidates(snapshots)) {
+            Method m = methods.get(idx);
+            Class<?>[] params = m.getParameterTypes();
+            try {
+                m.setAccessible(true);
+            } catch (Throwable ignored) {
+                continue;
+            }
+            return new AddDamageAccessor(m, params.length == 2, params[0] == double.class);
+        }
+        return null;
     }
 
     private static AddDamageAccessor tryAddDamageSignature(
@@ -324,8 +367,41 @@ public final class AttackAmplificationEvents {
                     c = c.getSuperclass();
                 }
             }
-            return Optional.empty();
+            return Optional.ofNullable(discoveredAccumulatedDamageField(t));
         }).orElse(null);
+    }
+
+    /**
+     * 已知名 miss 时的兜底：按「名字含 totalDamageTaken / accumulated / damageTaken 词根」枚举数值字段。
+     * 只返回第一个可写候选——调用方会以它为入账通道并验证 {@code getHealth} 是否随之下降。
+     */
+    private static Field discoveredAccumulatedDamageField(Class<?> type) {
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+        List<Field> fields = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(f.getType());
+                if (!HealthStateProbe.isNumeric(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.FieldSnapshot(f.getName(), kind, 0.0d, depth));
+                fields.add(f);
+            }
+        }
+        for (int idx : HealthStateProbe.selectAccumulatedDamageFieldCandidates(snapshots)) {
+            Field f = fields.get(idx);
+            try {
+                f.setAccessible(true);
+                return f;
+            } catch (Throwable ignored) {
+                // 不可写，试下一个
+            }
+        }
+        return null;
     }
 
     private static DamageSource resolveBypassSource(Player player) {
