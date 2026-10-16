@@ -30,7 +30,6 @@ public class ClientEvents {
         @SubscribeEvent
         public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.MULTI_STACK_ITEM.get(), ItemEntityRenderer::new);
-            event.registerEntityRenderer(ModEntities.FLIGHT_SEAT.get(), net.minecraft.client.renderer.entity.NoopRenderer::new);
         }
 
     }

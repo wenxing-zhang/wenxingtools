@@ -23,16 +23,6 @@ public final class ModEntities {
                     .updateInterval(20)
                     .build("multi_stack_item"));
 
-    // updateInterval(1)：位移每刻同步，避免高速飞行时的位置迟滞
-    public static final RegistryObject<EntityType<FlightSeatEntity>> FLIGHT_SEAT =
-            ENTITY_TYPES.register("flight_seat", () -> EntityType.Builder.<FlightSeatEntity>of(
-                            FlightSeatEntity::new, MobCategory.MISC)
-                    .sized(0.6F, 0.6F)
-                    .clientTrackingRange(10)
-                    .updateInterval(1)
-                    .fireImmune()
-                    .build("flight_seat"));
-
     public static void register(IEventBus eventBus) {
         ENTITY_TYPES.register(eventBus);
     }

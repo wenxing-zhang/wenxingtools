@@ -92,6 +92,7 @@ public class ModEvents {
         @SubscribeEvent
         public static void onPlayerLoggedOut(PlayerLoggedOutEvent event) {
             if (event.getEntity() != null) {
+                com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(event.getEntity());
                 UUID pid = event.getEntity().getUUID();
                 CharacteristicTickHandler.clearPlayerState(pid);
                 EnchantmentEvents.clearPotionAmplificationPlayerState(pid);
@@ -107,7 +108,7 @@ public class ModEvents {
             if (!event.getEntity().level().isClientSide && event.getEntity() instanceof ServerPlayer player) {
                 PacketHandler.syncAuthorityData(player);
 
-                CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
+                com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
             }
 
 
@@ -122,7 +123,7 @@ public class ModEvents {
                 PacketHandler.syncAuthorityData(player);
 
 
-                CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
+                com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
             }
 
             if (event.getEntity() != null) {
@@ -148,6 +149,7 @@ public class ModEvents {
                     data.setInvincibleCharacteristic(false);
                     data.setResourceCharacteristic(false);
                     data.setFreedomCharacteristic(false);
+                    data.setFreedomFlying(false);
                     data.setKillAuraCharacteristic(false);
                     calibrateLockedHealth(player, data);
                 }

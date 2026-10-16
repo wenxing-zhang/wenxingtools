@@ -104,7 +104,7 @@ public class KeyPacket {
                     if (newState) {
                         characteristicName = "自由特性：已开启（双击空格起飞）";
                     } else {
-                        com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
+                        com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
                         characteristicName = "自由特性：已关闭";
                     }
                     break;

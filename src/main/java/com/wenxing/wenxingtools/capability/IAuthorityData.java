@@ -17,6 +17,9 @@ public interface IAuthorityData extends INBTSerializable<CompoundTag> {
     boolean isFreedomCharacteristicOn();
     void setFreedomCharacteristic(boolean active);
 
+    boolean isFreedomFlying();
+    void setFreedomFlying(boolean flying);
+
     boolean isKillAuraCharacteristicOn();
     void setKillAuraCharacteristic(boolean active);
     int getKillAuraMode();

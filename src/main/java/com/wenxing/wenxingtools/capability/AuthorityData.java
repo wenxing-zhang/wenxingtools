@@ -10,6 +10,7 @@ public class AuthorityData implements IAuthorityData {
     private int resourceMultiplier = 10;
 
     private boolean freedomCharacteristic = false;
+    private boolean freedomFlying = false;
 
     private boolean killAuraCharacteristic = false;
     private int killAuraMode = 0;
@@ -86,6 +87,17 @@ public class AuthorityData implements IAuthorityData {
     }
 
     @Override
+    public boolean isFreedomFlying() {
+        return freedomFlying;
+    }
+
+    @Override
+    public void setFreedomFlying(boolean flying) {
+        this.freedomFlying = flying;
+        this.dirty = true;
+    }
+
+    @Override
     public boolean isKillAuraCharacteristicOn() {
         return killAuraCharacteristic;
     }
@@ -114,6 +126,7 @@ public class AuthorityData implements IAuthorityData {
         this.resourceCharacteristic = source.isResourceCharacteristicOn();
         this.resourceMultiplier = source.getResourceMultiplier();
         this.freedomCharacteristic = source.isFreedomCharacteristicOn();
+        this.freedomFlying = source.isFreedomFlying();
         this.killAuraCharacteristic = source.isKillAuraCharacteristicOn();
         this.killAuraMode = source.getKillAuraMode();
         this.dirty = true;
@@ -127,6 +140,7 @@ public class AuthorityData implements IAuthorityData {
         tag.putBoolean("resourceCharacteristic", resourceCharacteristic);
         tag.putInt("resourceMultiplier", resourceMultiplier);
         tag.putBoolean("freedomCharacteristic", freedomCharacteristic);
+        tag.putBoolean("freedomFlying", freedomFlying);
         tag.putBoolean("killAuraCharacteristic", killAuraCharacteristic);
         tag.putInt("killAuraMode", killAuraMode);
         return tag;
@@ -150,6 +164,7 @@ public class AuthorityData implements IAuthorityData {
         if (nbt.contains("resourceCharacteristic")) resourceCharacteristic = nbt.getBoolean("resourceCharacteristic");
         if (nbt.contains("resourceMultiplier")) resourceMultiplier = nbt.getInt("resourceMultiplier");
         if (nbt.contains("freedomCharacteristic")) freedomCharacteristic = nbt.getBoolean("freedomCharacteristic");
+        if (nbt.contains("freedomFlying")) freedomFlying = nbt.getBoolean("freedomFlying");
         if (nbt.contains("killAuraCharacteristic")) killAuraCharacteristic = nbt.getBoolean("killAuraCharacteristic");
         if (nbt.contains("killAuraMode")) {
             killAuraMode = com.wenxing.wenxingtools.util.ModEnums.KillAuraMode

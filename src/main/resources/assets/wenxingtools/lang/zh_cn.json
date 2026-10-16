@@ -27,7 +27,6 @@
   "item.wenxingtools.generic_spawn_egg.entity": "生物: %s",
   "item.wenxingtools.generic_spawn_egg.spawner_hint": "可右键地面生成该生物，右键刷怪笼切换刷怪类型",
   "item.wenxingtools.generic_spawn_egg.unbound": "未绑定生物类型",
-  "entity.wenxingtools.flight_seat": "飞行座",
   "itemGroup.wenxingtools": "文星工具",
   "key.category.wenxingtools.wenxing": "文星工具",
   "key.wenxingtools.invincible": "切换无敌特性 (KP1)",

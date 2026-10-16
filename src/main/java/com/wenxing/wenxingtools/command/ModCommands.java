@@ -185,7 +185,7 @@ public class ModCommands {
         IAuthorityData data = AuthorityDataProvider.getData(player);
         data.setFreedomCharacteristic(enable);
         if (!enable) {
-            com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
+            com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
         }
         sendToggleFeedback(player, "自由特性", enable, enable ? "双击空格起飞" : null);
         PacketHandler.syncAuthorityData(player);
