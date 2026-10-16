@@ -84,7 +84,7 @@
 
 ### 3.5 测试归属（强制）
 
-- **AI 不做任何测试**：不写、不跑单元测试 / GameTest / 集成测试；不启动 `runClient` / `runServer` / `runGameTestServer`；不为修复构造「先复现红灯再修」的验证循环。
+- **AI 不做任何测试**：不写、不跑单元测试 / GameTest / 集成测试；不启动 `runClient` / `runGameTestServer`；不为修复构造「先复现红灯再修」的验证循环。`runServer` 的唯一例外是 §3.6 的 **T2 无头冒烟**（限时、后台、日志落盘）——该节为更具体条款，冲突时优先适用。
 - 测试由**开发者后期统一进行**。AI 只负责把改动落到代码与资源，并给出人工测点。
 - 允许执行的命令限于**构建**与**结构性验收**（产物核对 / 隔离逻辑探针 / 无头冒烟，见 §3.6）；两者都不是行为验证，不能当作测试结论。
 - 交付说明中禁止出现「已验证 / 测试通过 / 已复现 / 已修复」这类断言——没测试就没有这类结论，只写「未测试」+ 测点。
@@ -109,7 +109,7 @@
 
 **T1 —— 隔离逻辑验证（允许）**：位置限 `.rivet/scratch/` 的一次性探针，交付前删除。手段用 `jshell`、单文件 `java Foo.java`（JDK 11+）或项目自带 runner，**不得引入新依赖**。准入条件是**被测逻辑不依赖 MC 运行时**——把判定/计算抽成 `static` 纯函数、把状态机抽成不依赖 `Level` 的纯类。断言逐条输出 `PASS/FAIL` + 实际值，**不得为让它通过而弱化断言**。证据格式 `verify: T1 | <探针路径> | <N passed / M failed>`。
 
-**T2 —— 无头运行时冒烟（允许）**：`.\gradlew.bat runServer --nogui`（后台），配置 `online-mode=false`、`level-type=flat` 缩短启动。校验 MOD 加载无异常、`/summon <modid>:<entity>` 成功、运行若干 tick 后 `logs/latest.log` 无 `ERROR`／未捕获异常；有 Mixin 时确认无注入失败或冲突（Forge 在启动期报告）。**限时（建议 5 分钟）后强制 kill，日志落盘 `.rivet/scratch/`；不得以「服务端起来了没报错」宣称功能正确。禁止 `runClient`（图形环境不可控，属 T3）。** 证据格式 `verify: T2 | runServer <时长> | log 无 ERROR | <校验点结果>`。
+**T2 —— 无头运行时冒烟（允许）**：`.\gradlew.bat runServer --args="nogui"`（后台）——本仓库 ForgeGradle 的 `runServer` **不接受裸 `--nogui`**（报 `Unknown command-line option '--nogui'`，`build.gradle` 的 runs 块也未配 args），必须经 Gradle 的 `--args` 传递；配置 `online-mode=false`、`level-type=flat` 缩短启动。注意 `--args="nogui"` 下 stdin 一旦关闭（含管道 EOF）服务端会**就绪后立即自行退出**，因此「运行若干 tick」需另行保持 stdin 开启（本仓库尚未以此方式验证过）。校验 MOD 加载无异常、`/summon <modid>:<entity>` 成功、运行若干 tick 后 `logs/latest.log` 无 `ERROR`／未捕获异常；有 Mixin 时确认无注入失败或冲突（Forge 在启动期报告）。**限时（建议 5 分钟）后强制 kill，日志落盘 `.rivet/scratch/`；不得以「服务端起来了没报错」宣称功能正确。禁止 `runClient`（图形环境不可控，属 T3）。** 证据格式 `verify: T2 | runServer <时长> | log 无 ERROR | <校验点结果>`。
 
 **T3 登记义务（硬性）**：凡**只有真实客户端能验**的断言，必须在**计划阶段**登记，不得等到交付时才说验不了。登记项含：断言、为何不可自动化、人工测点编号、若失败的回退方案。交付报告必须逐条列出 `unverified: T3 | <断言> | 障碍: <具体> | 人工测点 #N`；**禁止**用「未实机验证」一句笼统带过。
 
