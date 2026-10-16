@@ -106,17 +106,13 @@ public record KeyPacket(int key) implements CustomPacketPayload {
                 case FREEDOM -> {
                     newState = !data.isFreedomCharacteristicOn();
                     data.setFreedomCharacteristic(newState);
-                    if (newState) {
-                        player.getAbilities().mayfly = true;
-                        characteristicName = Component.translatable("msg.wenxingtools.freedom.on");
-                    } else {
-                        if (!player.isCreative() && !player.isSpectator()) {
-                            player.getAbilities().mayfly = false;
-                            player.getAbilities().flying = false;
-                        }
-                        characteristicName = Component.translatable("msg.wenxingtools.freedom.off");
+                    if (!newState) {
+                        // 关闭当场回收飞行座（开关关闭后载具自身 tick 也会判，但这里立即生效）
+                        com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
                     }
-                    player.onUpdateAbilities();
+                    characteristicName = Component.translatable(newState
+                            ? "msg.wenxingtools.freedom.on"
+                            : "msg.wenxingtools.freedom.off");
                 }
                 case KILL_AURA -> {
                     newState = !data.isKillAuraCharacteristicOn();

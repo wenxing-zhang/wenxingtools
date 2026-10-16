@@ -156,14 +156,12 @@ public class ModCommands {
         IAuthorityData data = AuthorityAttachments.getData(player);
         if (data != null) {
             data.setFreedomCharacteristic(enable);
-            if (enable) {
-                player.getAbilities().mayfly = true;
-            } else if (!player.isCreative() && !player.isSpectator()) {
-                player.getAbilities().mayfly = false;
-                player.getAbilities().flying = false;
+            if (!enable) {
+                // 关闭当场回收飞行座（与按键路径同一出口）
+                com.wenxing.wenxingtools.entity.FlightSeatService.dismountAndDiscard(player);
             }
-            player.onUpdateAbilities();
-            sendToggleFeedback(player, "msg.wenxingtools.label.freedom", enable, null);
+            sendToggleFeedback(player, "msg.wenxingtools.label.freedom", enable,
+                    enable ? Component.translatable("msg.wenxingtools.freedom.hint") : null);
             ModNetwork.syncAuthorityData(player);
         }
         return 1;

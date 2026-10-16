@@ -3,7 +3,11 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.attachment.AuthorityAttachments;
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
+import com.wenxing.wenxingtools.entity.FlightSeatEntity;
+import com.wenxing.wenxingtools.entity.FlightSeatInputStore;
+import com.wenxing.wenxingtools.entity.FlightSeatService;
 import com.wenxing.wenxingtools.network.ModNetwork;
+import com.wenxing.wenxingtools.network.packet.FlightSummonPacket;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.PermissionUtil;
 import net.minecraft.ChatFormatting;
@@ -14,44 +18,26 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @EventBusSubscriber(modid = WenXingTools.MODID)
 public final class CharacteristicTickHandler {
     private CharacteristicTickHandler() {}
 
-    private static final Map<UUID, Boolean> LAST_MAYFLY_STATE = new ConcurrentHashMap<>();
-
     public static void clearPlayerState(UUID playerId) {
         if (playerId == null) {
             return;
         }
-        LAST_MAYFLY_STATE.remove(playerId);
+        FlightSeatInputStore.clear(playerId);
+        FlightSummonPacket.clearCooldown(playerId);
     }
 
-    /**
-     * 切维 / 重生后强制重刷自由飞行能力（对齐 1.20.1）。
-     * 客户端 LocalPlayer 会被重建，若服务端 mayfly + 缓存仍为 true 就不会再 onUpdateAbilities，
-     * 导致客户端 mayfly 失同步、双击空格无法起飞。
-     */
-    public static void reapplyFreedomAfterWorldChange(ServerPlayer player) {
+    /** 切维 / 重生后回收飞行座残留——载具不跨维度，旧实例不回收会留下无人骑乘的孤儿实体。 */
+    public static void reclaimFlightSeatAfterWorldChange(ServerPlayer player) {
         if (player == null) {
             return;
         }
-        UUID pid = player.getUUID();
-        LAST_MAYFLY_STATE.remove(pid);
-
-        IAuthorityData data = AuthorityAttachments.getData(player);
-        if (data == null) {
-            return;
-        }
-        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(player, data, PermissionUtil.hasPermission(player))) {
-            player.getAbilities().mayfly = true;
-            player.onUpdateAbilities();
-            LAST_MAYFLY_STATE.put(pid, true);
-        }
+        FlightSeatService.dismountAndDiscard(player);
     }
 
     @SubscribeEvent
@@ -74,19 +60,12 @@ public final class CharacteristicTickHandler {
         boolean freedomOn = data.isFreedomCharacteristicOn();
         boolean resourceOn = data.isResourceCharacteristicOn();
         boolean killAuraOn = data.isKillAuraCharacteristicOn();
-        UUID pid = player.getUUID();
 
         if (!invincibleOn && !freedomOn && !resourceOn && !killAuraOn) {
             if (player.invulnerableTime > 20) {
                 player.invulnerableTime = 0;
             }
-            if (LAST_MAYFLY_STATE.remove(pid, Boolean.TRUE)) {
-                if (!player.isCreative() && !player.isSpectator()) {
-                    player.getAbilities().mayfly = false;
-                    player.getAbilities().flying = false;
-                }
-                player.onUpdateAbilities();
-            }
+            reclaimSeatIfRiding(player);
             return;
         }
 
@@ -133,22 +112,15 @@ public final class CharacteristicTickHandler {
             }
         }
 
-        if (PermissionUtil.isFreedomCharacteristicActiveOrRevoke(sPlayer, data, hasPermission)) {
-            Boolean last = LAST_MAYFLY_STATE.get(pid);
-            boolean current = player.getAbilities().mayfly;
-            if (!current || last == null || last != Boolean.TRUE) {
-                player.getAbilities().mayfly = true;
-                player.onUpdateAbilities();
-                LAST_MAYFLY_STATE.put(pid, Boolean.TRUE);
-            }
-        } else {
-            if (LAST_MAYFLY_STATE.remove(pid, Boolean.TRUE)) {
-                if (!player.isCreative() && !player.isSpectator()) {
-                    player.getAbilities().mayfly = false;
-                    player.getAbilities().flying = false;
-                }
-                player.onUpdateAbilities();
-            }
+        // 开关关闭或失权自动关：回收飞行座（载具自身 tick 也会判一次，此处兜住未 tick 的情形）
+        if (!PermissionUtil.isFreedomCharacteristicActiveOrRevoke(sPlayer, data, hasPermission)) {
+            reclaimSeatIfRiding(player);
+        }
+    }
+
+    private static void reclaimSeatIfRiding(Player player) {
+        if (player.getVehicle() instanceof FlightSeatEntity) {
+            FlightSeatService.dismountAndDiscard(player);
         }
     }
 }

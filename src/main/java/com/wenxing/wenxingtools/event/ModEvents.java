@@ -58,7 +58,7 @@ public final class ModEvents {
         }
         if (!player.level().isClientSide) {
             ModNetwork.syncAuthorityData(player);
-            CharacteristicTickHandler.reapplyFreedomAfterWorldChange(player);
+            CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
         }
         AmplificationSyncCoordinator.reinitializePlayerAmplifications(player);
     }
@@ -70,7 +70,7 @@ public final class ModEvents {
         }
         if (!player.level().isClientSide) {
             ModNetwork.syncAuthorityData(player);
-            CharacteristicTickHandler.reapplyFreedomAfterWorldChange(player);
+            CharacteristicTickHandler.reclaimFlightSeatAfterWorldChange(player);
         }
         AmplificationSyncCoordinator.reinitializePlayerAmplifications(player);
     }
