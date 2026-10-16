@@ -12,6 +12,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -56,6 +57,7 @@ public final class DamageCapBypass {
 
     private static final Map<Class<?>, UnclampedSetter[]> SETTER_CACHE = new ConcurrentHashMap<>();
     private static final Map<Class<?>, Field[]> COOLDOWN_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Class<?>, Optional<Field>> ACCUMULATED_FIELD_CACHE = new ConcurrentHashMap<>();
 
     /** 按可入账上限分片扣血，返回实际扣血量。不改事件金额、不叠伤。 */
     public static float applyDamageCapAwareTrueDamage(Player attacker, LivingEntity target, float amount) {
@@ -87,6 +89,10 @@ public final class DamageCapBypass {
         }
 
         totalDealt += drainViaGenericKillHurt(attacker, target, remaining);
+        remaining = Math.max(0.0f, amount - totalDealt);
+        if (remaining > EPS && target.isAlive()) {
+            totalDealt += drainViaHealthFieldWrite(target, remaining);
+        }
 
         if (totalDealt <= EPS && WenXingTools.LOGGER.isDebugEnabled()) {
             logHealthFieldDiagnostics(target);
@@ -147,6 +153,79 @@ public final class DamageCapBypass {
         return 0.0d;
     }
 
+    /**
+     * 目标的「累计承受伤害」字段——部分模组的 {@code getHealth} 是滞后/展示值，真实受伤总量另记字段。
+     * <p>用于旁路闭环的第二观测口：血量差为 0 时若该字段增加，仍判定「扣动了」。</p>
+     */
+    private static Field accumulatedFieldFor(Class<?> type) {
+        return ACCUMULATED_FIELD_CACHE.computeIfAbsent(type, t -> {
+            List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+            List<Field> fields = new ArrayList<>();
+            int depth = 0;
+            for (Class<?> c = t; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (Modifier.isStatic(f.getModifiers())) {
+                        continue;
+                    }
+                    HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(f.getType());
+                    if (!HealthStateProbe.isNumeric(kind)) {
+                        continue;
+                    }
+                    snapshots.add(new HealthStateProbe.FieldSnapshot(f.getName(), kind, 0.0d, depth));
+                    fields.add(f);
+                }
+            }
+            for (int idx : HealthStateProbe.selectAccumulatedDamageFieldCandidates(snapshots)) {
+                Field f = fields.get(idx);
+                try {
+                    f.setAccessible(true);
+                    return Optional.of(f);
+                } catch (Throwable ignored) {
+                    // 不可写，试下一个
+                }
+            }
+            return Optional.empty();
+        }).orElse(null);
+    }
+
+    /** 读累计承受伤害；无该字段或不可读返回 0（此时闭环只靠血量差与死亡判据）。 */
+    public static double readAccumulated(LivingEntity target) {
+        Field field = accumulatedFieldFor(target.getClass());
+        if (field == null) {
+            return 0.0d;
+        }
+        try {
+            Object value = field.get(target);
+            if (value instanceof Number n) {
+                return n.doubleValue();
+            }
+        } catch (Throwable ignored) {
+            // 不可读
+        }
+        return 0.0d;
+    }
+
+    private static float readFloatField(Field field, Object owner) {
+        try {
+            Object value = field.get(owner);
+            if (value instanceof Float f) {
+                return f;
+            }
+        } catch (Throwable ignored) {
+            // 不可读
+        }
+        return 0.0f;
+    }
+
+    private static boolean writeFloatField(Field field, Object owner, float value) {
+        try {
+            field.set(owner, value);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     /** 将目标血量压到 0（击杀路径）。尊重单次钳制，分片清空。 */
     public static boolean forceReduceHealthToZero(Player attacker, LivingEntity target) {
         if (target == null || target.isRemoved()) {
@@ -165,6 +244,9 @@ public final class DamageCapBypass {
             drainViaGenericKillHurt(attacker, target, target.getHealth());
         }
         if (target.getHealth() > 0.0f) {
+            drainViaHealthFieldWrite(target, target.getHealth());
+        }
+        if (target.getHealth() > 0.0f) {
             target.setHealth(0.0f);
         }
         return target.getHealth() <= 0.0f || target.isDeadOrDying();
@@ -180,25 +262,23 @@ public final class DamageCapBypass {
             if (!(before > 0.0f) || Float.isNaN(before)) {
                 break;
             }
+            double accumulatedBefore = readAccumulated(target);
             double[] plan = HealthStateProbe.planChunks(remaining, observedCap);
             if (plan.length == 0) {
                 break;
             }
             float chunk = (float) Math.min(plan[0], before);
             target.setHealth(before - chunk);
-            float after = target.getHealth();
-            if (Float.isNaN(after)) {
-                break;
-            }
-            float lost = before - after;
-            if (lost <= EPS) {
+            double lost = HealthStateProbe.observedLoss(
+                    before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            if (!(lost > EPS)) {
                 break;
             }
             if (lost > chunk + EPS) {
                 lost = chunk;
             }
-            totalDealt += lost;
-            remaining -= lost;
+            totalDealt += (float) lost;
+            remaining -= (float) lost;
             observedCap = HealthStateProbe.inferObservedCap(chunk, lost);
         }
         return totalDealt;
@@ -219,33 +299,28 @@ public final class DamageCapBypass {
             }
             float chunk = Math.min(remaining, before);
             float intended = before - chunk;
-            float after = before;
+            double accumulatedBefore = readAccumulated(target);
+            double lost = 0.0d;
             for (UnclampedSetter setter : setters) {
                 try {
                     setter.invoke(target, intended);
                 } catch (Throwable ignored) {
                     continue;
                 }
-                after = target.getHealth();
-                if (Float.isNaN(after)) {
-                    continue;
-                }
-                if (before - after > EPS) {
+                lost = HealthStateProbe.observedLoss(
+                        before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+                if (lost > EPS) {
                     break;
                 }
             }
-            if (Float.isNaN(after)) {
-                break;
-            }
-            float lost = before - after;
-            if (lost <= EPS) {
+            if (!(lost > EPS)) {
                 break;
             }
             if (lost > chunk + EPS) {
                 lost = chunk;
             }
-            totalDealt += lost;
-            remaining -= lost;
+            totalDealt += (float) lost;
+            remaining -= (float) lost;
         }
         return totalDealt;
     }
@@ -286,24 +361,110 @@ public final class DamageCapBypass {
             if (!(before > 0.0f) || Float.isNaN(before)) {
                 break;
             }
+            double accumulatedBefore = readAccumulated(target);
             float chunk = Math.min(remaining, before);
             clearDamageCooldowns(target);
             target.invulnerableTime = 0;
             target.hurtTime = 0;
             target.hurt(source, chunk);
-            float after = target.getHealth();
-            if (Float.isNaN(after)) {
-                break;
-            }
-            float lost = before - after;
-            if (lost <= EPS) {
+            double lost = HealthStateProbe.observedLoss(
+                    before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            if (!(lost > EPS)) {
                 break;
             }
             if (lost > chunk + EPS) {
                 lost = chunk;
             }
-            totalDealt += lost;
-            remaining -= lost;
+            totalDealt += (float) lost;
+            remaining -= (float) lost;
+        }
+        return totalDealt;
+    }
+
+    /**
+     * 最后手段：直接写「疑似承载血量的实例字段」。
+     *
+     * <p>只在方法层三条通道（setHealth / 无钳 setter / hurt）全部无进展时启用——此时目标多半把
+     * 血量藏在私有字段且拒写。只写名字含血量词根的强候选、且限 {@code float}；每次写入后用
+     * {@link HealthStateProbe#observedLoss} 验证是否真的推动了血量，未推动立刻写回原值，
+     * 避免把与血量无关的字段改坏。</p>
+     */
+    private static float drainViaHealthFieldWrite(LivingEntity target, float amount) {
+        if (target == null || !(amount > 0.0f)) {
+            return 0.0f;
+        }
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+        List<Field> fields = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = target.getClass(); c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers()) || f.getType() != float.class) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.FieldSnapshot(
+                        f.getName(), HealthStateProbe.NumericKind.FLOAT, readFloatField(f, target), depth));
+                fields.add(f);
+            }
+        }
+        if (snapshots.isEmpty()) {
+            return 0.0f;
+        }
+        double maxHealth = target.getMaxHealth();
+        int strong = HealthStateProbe.strongHealthFieldCount(snapshots, maxHealth);
+        if (strong <= 0) {
+            return 0.0f;
+        }
+        List<Integer> ordered = HealthStateProbe.selectHealthFieldCandidates(snapshots, maxHealth);
+        float totalDealt = 0.0f;
+        for (int i = 0; i < strong && i < ordered.size() && totalDealt <= EPS; i++) {
+            Field f = fields.get(ordered.get(i));
+            try {
+                f.setAccessible(true);
+            } catch (Throwable ignored) {
+                continue;
+            }
+            totalDealt += writeFieldChunked(target, f, Math.max(0.0f, amount - totalDealt));
+        }
+        return totalDealt;
+    }
+
+    /** 对单个疑似血量字段分片写入；每次写入都闭环验证，无进展即写回原值。 */
+    private static float writeFieldChunked(LivingEntity target, Field field, float amount) {
+        float fieldValue = readFloatField(field, target);
+        if (!(fieldValue > 0.0f) || !(amount > 0.0f)) {
+            return 0.0f;
+        }
+        float totalDealt = 0.0f;
+        float remaining = Math.min(amount, fieldValue);
+        double observedCap = 0.0d;
+        int guard = MAX_CHUNKS;
+        while (remaining > EPS && guard-- > 0 && target.isAlive()) {
+            float valueBefore = readFloatField(field, target);
+            if (!(valueBefore > 0.0f)) {
+                break;
+            }
+            float healthBefore = target.getHealth();
+            double accumulatedBefore = readAccumulated(target);
+            double[] plan = HealthStateProbe.planChunks(remaining, observedCap);
+            if (plan.length == 0) {
+                break;
+            }
+            float chunk = (float) Math.min(plan[0], valueBefore);
+            if (!writeFloatField(field, target, Math.max(0.0f, valueBefore - chunk))) {
+                break;
+            }
+            double lost = HealthStateProbe.observedLoss(
+                    healthBefore, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            if (!(lost > EPS)) {
+                writeFloatField(field, target, valueBefore);
+                break;
+            }
+            if (lost > chunk + EPS) {
+                lost = chunk;
+            }
+            totalDealt += (float) lost;
+            remaining -= (float) lost;
+            observedCap = HealthStateProbe.inferObservedCap(chunk, lost);
         }
         return totalDealt;
     }

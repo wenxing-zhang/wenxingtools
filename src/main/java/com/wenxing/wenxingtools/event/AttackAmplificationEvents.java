@@ -200,10 +200,12 @@ public final class AttackAmplificationEvents {
         }
 
         // 1) setHealth 验证生效（LM 自定义血量在服务端是空操作）
+        double accumulatedBefore = DamageCapBypass.readAccumulated(target);
         float desired = Math.max(0.0f, before - amount);
         target.setHealth(desired);
         float after = target.getHealth();
-        double hpLost = HealthStateProbe.observedLoss(before, 0.0d, after, 0.0d, !target.isAlive());
+        double hpLost = HealthStateProbe.observedLoss(
+                before, accumulatedBefore, after, DamageCapBypass.readAccumulated(target), !target.isAlive());
         if (hpLost > 1.0e-4d) {
             return (float) hpLost;
         }
