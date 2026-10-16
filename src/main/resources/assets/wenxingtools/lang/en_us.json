@@ -31,7 +31,7 @@
   "key.category.wenxingtools.wenxing": "WenXing Tools",
   "key.wenxingtools.invincible": "Toggle Invincible Characteristic (KP1)",
   "key.wenxingtools.resource": "Toggle Resource Characteristic (KP2)",
-  "key.wenxingtools.freedom": "Toggle Freedom Characteristic (KP3)",
+  "key.wenxingtools.freedom": "Toggle Freedom Characteristic",
   "key.wenxingtools.kill_aura": "Toggle Kill Aura Characteristic (KP4)",
   "key.wenxingtools.resource_amplification": "Toggle Resource Amplification (KP0)"
 }

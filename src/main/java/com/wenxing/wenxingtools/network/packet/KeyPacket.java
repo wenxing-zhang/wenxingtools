@@ -102,7 +102,7 @@ public class KeyPacket {
                     newState = !data.isFreedomCharacteristicOn();
                     data.setFreedomCharacteristic(newState);
                     if (newState) {
-                        characteristicName = "自由特性：已开启（双击空格起飞）";
+                        characteristicName = "自由特性：已开启";
                     } else {
                         com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
                         characteristicName = "自由特性：已关闭";

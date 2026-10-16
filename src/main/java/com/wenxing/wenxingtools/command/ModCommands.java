@@ -187,7 +187,7 @@ public class ModCommands {
         if (!enable) {
             com.wenxing.wenxingtools.entity.FreedomFlightService.stopFlight(player);
         }
-        sendToggleFeedback(player, "自由特性", enable, enable ? "双击空格起飞" : null);
+        sendToggleFeedback(player, "自由特性", enable, null);
         PacketHandler.syncAuthorityData(player);
         return 1;
     }
