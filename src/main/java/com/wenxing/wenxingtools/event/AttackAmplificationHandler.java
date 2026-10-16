@@ -110,13 +110,19 @@ public final class AttackAmplificationHandler {
         }
 
         // 低血：走必杀链；未死再退回旁路真伤（姊妹端口径：溢出量一并计入吸血）
+        // 必杀链须在增幅闸门外调用（applyDirectKill 自身首段查闸门，闸门内会被直接 return），
+        // 旁路真伤则须在闸门内——否则其 hurt 以「无闸门上下文」触发回响 / 净化 / 无敌特性链，造成级联。
         float healthBeforeKill = target.getHealth();
         CombatUtil.applyDirectKill(serverPlayer, target);
         float dealt;
         if (target.isDeadOrDying() || target.isRemoved() || target.getHealth() <= 0.0f) {
             dealt = healthBeforeKill;
         } else {
-            dealt = CombatUtil.applyBypassTrueDamage(serverPlayer, target, percentDamage);
+            final float[] dealtHolder = new float[1];
+            CombatReentry.runAttackAmp(() -> {
+                dealtHolder[0] = CombatUtil.applyBypassTrueDamage(serverPlayer, target, percentDamage);
+            });
+            dealt = dealtHolder[0];
             if (dealt <= 0.0f) {
                 foldIntoEvent(event, percentDamage);
                 dealt = percentDamage;
