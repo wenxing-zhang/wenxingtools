@@ -4,9 +4,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MoverType;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -63,12 +61,14 @@ public class FlightSeatEntity extends Entity {
         return false;
     }
 
+    // 有意不覆写 getControllingPassenger()：它会让客户端 isControlledByLocalInstance() 判为 true，
+    // 客户端遂丢弃本载具的位置包（ClientPacketListener.handleMoveEntity）、并把停滞的载具坐标回灌服务端
+    // （LocalPlayer.tick 乘客分支），表现为「骑上去了但完全无法移动」。本载具位移由服务端 tick 驱动。
     @Nullable
-    @Override
-    public LivingEntity getControllingPassenger() {
+    private ServerPlayer firstRider() {
         for (Entity passenger : this.getPassengers()) {
-            if (passenger instanceof Player player) {
-                return player;
+            if (passenger instanceof ServerPlayer serverPlayer) {
+                return serverPlayer;
             }
         }
         return null;
@@ -80,7 +80,8 @@ public class FlightSeatEntity extends Entity {
         if (this.level().isClientSide) {
             return;
         }
-        if (!(getControllingPassenger() instanceof ServerPlayer rider) || !rider.isAlive()) {
+        ServerPlayer rider = firstRider();
+        if (rider == null || !rider.isAlive()) {
             this.discard();
             return;
         }
