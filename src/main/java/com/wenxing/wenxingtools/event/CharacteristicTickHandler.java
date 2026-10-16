@@ -48,7 +48,10 @@ public final class CharacteristicTickHandler {
             if (player.invulnerableTime >= 20) {
                 player.invulnerableTime = 0;
             }
-            FreedomFlightService.stopFlight(player);
+            // 未飞行时无须触碰权威数据（stopFlight 内的能力查询对每刻每玩家都是白付）
+            if (data.isFreedomFlying()) {
+                FreedomFlightService.stopFlight(player);
+            }
             return;
         }
 

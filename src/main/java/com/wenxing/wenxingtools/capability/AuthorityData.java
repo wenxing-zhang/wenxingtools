@@ -126,7 +126,7 @@ public class AuthorityData implements IAuthorityData {
         this.resourceCharacteristic = source.isResourceCharacteristicOn();
         this.resourceMultiplier = source.getResourceMultiplier();
         this.freedomCharacteristic = source.isFreedomCharacteristicOn();
-        this.freedomFlying = source.isFreedomFlying();
+        // 飞行态是瞬时状态，不随死亡克隆继承：否则重生瞬间会先向客户端同步一次「飞行中」
         this.killAuraCharacteristic = source.isKillAuraCharacteristicOn();
         this.killAuraMode = source.getKillAuraMode();
         this.dirty = true;
