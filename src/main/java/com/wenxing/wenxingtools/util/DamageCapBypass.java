@@ -206,6 +206,20 @@ public final class DamageCapBypass {
         return 0.0d;
     }
 
+    /**
+     * 闭环掉血测量：血量差已能判定时就不再读累计字段，省一次反射。
+     * <p>累计字段只在「血量差为 0」时才有意义——那时才需要看它有没有增加。</p>
+     */
+    private static double measureLoss(LivingEntity target, float healthBefore, double accumulatedBefore) {
+        float healthAfter = target.getHealth();
+        double healthDelta = healthBefore - healthAfter;
+        if (healthDelta > EPS) {
+            return healthDelta;
+        }
+        return HealthStateProbe.observedLoss(
+                healthBefore, accumulatedBefore, healthAfter, readAccumulated(target), !target.isAlive());
+    }
+
     private static float readFloatField(Field field, Object owner) {
         try {
             field.setAccessible(true);
@@ -265,14 +279,12 @@ public final class DamageCapBypass {
                 break;
             }
             double accumulatedBefore = readAccumulated(target);
-            double[] plan = HealthStateProbe.planChunks(remaining, observedCap);
-            if (plan.length == 0) {
+            float chunk = (float) HealthStateProbe.nextChunk(remaining, observedCap, before);
+            if (!(chunk > 0.0f)) {
                 break;
             }
-            float chunk = (float) Math.min(plan[0], before);
             target.setHealth(before - chunk);
-            double lost = HealthStateProbe.observedLoss(
-                    before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            double lost = measureLoss(target, before, accumulatedBefore);
             if (!(lost > EPS)) {
                 break;
             }
@@ -309,8 +321,7 @@ public final class DamageCapBypass {
                 } catch (Throwable ignored) {
                     continue;
                 }
-                lost = HealthStateProbe.observedLoss(
-                        before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+                lost = measureLoss(target, before, accumulatedBefore);
                 if (lost > EPS) {
                     break;
                 }
@@ -369,8 +380,7 @@ public final class DamageCapBypass {
             target.invulnerableTime = 0;
             target.hurtTime = 0;
             target.hurt(source, chunk);
-            double lost = HealthStateProbe.observedLoss(
-                    before, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            double lost = measureLoss(target, before, accumulatedBefore);
             if (!(lost > EPS)) {
                 break;
             }
@@ -460,16 +470,14 @@ public final class DamageCapBypass {
             }
             float healthBefore = target.getHealth();
             double accumulatedBefore = readAccumulated(target);
-            double[] plan = HealthStateProbe.planChunks(remaining, observedCap);
-            if (plan.length == 0) {
+            float chunk = (float) HealthStateProbe.nextChunk(remaining, observedCap, valueBefore);
+            if (!(chunk > 0.0f)) {
                 break;
             }
-            float chunk = (float) Math.min(plan[0], valueBefore);
             if (!writeFloatField(field, target, Math.max(0.0f, valueBefore - chunk))) {
                 break;
             }
-            double lost = HealthStateProbe.observedLoss(
-                    healthBefore, accumulatedBefore, target.getHealth(), readAccumulated(target), !target.isAlive());
+            double lost = measureLoss(target, healthBefore, accumulatedBefore);
             if (!(lost > EPS)) {
                 writeFloatField(field, target, valueBefore);
                 break;

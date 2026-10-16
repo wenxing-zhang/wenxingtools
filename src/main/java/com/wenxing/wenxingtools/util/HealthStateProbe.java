@@ -173,11 +173,17 @@ public final class HealthStateProbe {
             if (!containsAny(m.name(), HEALTH_HINTS)) {
                 continue;
             }
+            // 候选会被真的试调且副作用无法回滚，故只认「setter 命名」或「已知无钳名」
+            boolean preferred = nameEqualsAny(m.name(), preferredNames);
+            boolean setterNamed = m.name() != null && m.name().toLowerCase(Locale.ROOT).startsWith("set");
+            if (!preferred && !setterNamed) {
+                continue;
+            }
             int score = 0;
-            if (nameEqualsAny(m.name(), preferredNames)) {
+            if (preferred) {
                 score += 8;
             }
-            if (m.name() != null && m.name().toLowerCase(Locale.ROOT).startsWith("set")) {
+            if (setterNamed) {
                 score += 1;
             }
             scored.add(new int[]{i, score, Math.max(m.depth(), 0)});
@@ -192,35 +198,24 @@ public final class HealthStateProbe {
     }
 
     /**
-     * 按「观测到的单次可入账上限」把待扣量切成若干片。
+     * 下一片该扣多少。
      *
-     * <p>{@code observedCap <= 0}（尚未观测到上限）返回单片全额，交由调用方闭环决定是否继续；
-     * 否则每片不超过 cap，片数封顶 {@link #MAX_CHUNKS}，末片把余数一次给足。</p>
+     * <p>调用方是「边扣边观测」的闭环：每扣一片都要复测真实掉血，据此才知道目标的单次上限，
+     * 所以不存在「一次规划整串分片」的用法——只给出下一片，由闭环决定是否继续。</p>
+     *
+     * @param remaining    本次结算还差多少
+     * @param observedCap  已观测到的单次可入账上限（{@code <= 0} 表示尚未观测到）
+     * @param healthBefore 目标当前血量——单片不得超过它
      */
-    public static double[] planChunks(double remaining, double observedCap) {
+    public static double nextChunk(double remaining, double observedCap, double healthBefore) {
         if (!(remaining > 0.0d) || Double.isNaN(remaining)) {
-            return new double[0];
+            return 0.0d;
         }
-        if (!(observedCap > 0.0d) || observedCap >= remaining) {
-            return new double[]{remaining};
+        if (!(healthBefore > 0.0d) || Double.isNaN(healthBefore)) {
+            return 0.0d;
         }
-        int count = (int) Math.ceil(remaining / observedCap);
-        if (count > MAX_CHUNKS) {
-            count = MAX_CHUNKS;
-        }
-        double[] chunks = new double[count];
-        double left = remaining;
-        for (int i = 0; i < count; i++) {
-            double chunk;
-            if (i == count - 1) {
-                chunk = Math.max(0.0d, left);
-            } else {
-                chunk = Math.min(observedCap, left);
-            }
-            chunks[i] = chunk;
-            left = Math.max(0.0d, left - chunk);
-        }
-        return chunks;
+        double planned = (observedCap > 0.0d) ? Math.min(observedCap, remaining) : remaining;
+        return Math.min(planned, healthBefore);
     }
 
     /** 由「意图量 vs 实际掉血」反推当前单次上限：没被削返回 0（无需分片），被削返回实际值。 */
