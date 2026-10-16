@@ -21,6 +21,9 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -118,12 +121,14 @@ public final class CombatUtil {
         }
 
         // 1) setHealth 验证生效（只认真实掉血；空操作不得提前返回）
+        double accumulatedBefore = DamageCapBypass.readAccumulated(target);
         float intended = Math.max(0.0f, before - amount);
         target.setHealth(intended);
         float after = target.getHealth();
-        float hpLost = before - after;
-        if (hpLost > 0.0f) {
-            return hpLost;
+        double hpLost = HealthStateProbe.observedLoss(
+                before, accumulatedBefore, after, DamageCapBypass.readAccumulated(target), !target.isAlive());
+        if (hpLost > 1.0e-4d) {
+            return (float) hpLost;
         }
 
         // 2) 反射 addDamage / totalDamageTaken：invoke 后对比 getHealth
@@ -254,10 +259,100 @@ public final class CombatUtil {
             }
             cursor = cursor.getSuperclass();
         }
+        // 已知名 miss 时的兜底：按名字语义枚举候选（新模组生物改名后仍可命中）
+        if (addDamage == null) {
+            AddDamageHandle discovered = discoveredAddDamageHandle(type);
+            if (discovered != null) {
+                addDamage = discovered.handle;
+                addDamageNeedsSource = discovered.needsSource;
+                addDamageDoubleArg = discovered.doubleArg;
+            }
+        }
+        if (totalField == null) {
+            totalField = discoveredAccumulatedDamageField(type);
+        }
         if (addDamage == null && totalField == null) {
             return ThirdPartyDamageAccess.NONE;
         }
         return new ThirdPartyDamageAccess(addDamage, addDamageNeedsSource, addDamageDoubleArg, totalField);
+    }
+
+    /**
+     * 已知名 miss 时的兜底：按「名字含 addDamage / applyDamage / damageDirect / realDamage 词根」枚举方法。
+     * 只取第一个候选——名字语义限定得很窄，避免误调无关的伤害方法。
+     */
+    private static AddDamageHandle discoveredAddDamageHandle(Class<?> type) {
+        List<HealthStateProbe.MethodSnapshot> snapshots = new ArrayList<>();
+        List<Method> methods = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Method m : c.getDeclaredMethods()) {
+                if (Modifier.isStatic(m.getModifiers()) || Modifier.isAbstract(m.getModifiers())) {
+                    continue;
+                }
+                int paramCount = m.getParameterCount();
+                if (paramCount < 1 || paramCount > 2) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(m.getParameterTypes()[0]);
+                if (!HealthStateProbe.isNumeric(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.MethodSnapshot(m.getName(), kind, m.getReturnType() == void.class, depth));
+                methods.add(m);
+            }
+        }
+        for (int idx : HealthStateProbe.selectAddDamageMethodCandidates(snapshots)) {
+            Method m = methods.get(idx);
+            try {
+                m.setAccessible(true);
+            } catch (Throwable ignored) {
+                continue;
+            }
+            Class<?>[] params = m.getParameterTypes();
+            try {
+                return new AddDamageHandle(
+                        MethodHandles.lookup().unreflect(m),
+                        params.length == 2,
+                        params[0] == double.class);
+            } catch (Throwable ignored) {
+                // 反射失败，试下一个
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 已知名 miss 时的兜底：按「名字含 totalDamageTaken / accumulated / damageTaken 词根」枚举数值字段。
+     * 只返回第一个可写候选——调用方会以它为入账通道并验证 {@code getHealth} 是否随之下降。
+     */
+    private static Field discoveredAccumulatedDamageField(Class<?> type) {
+        List<HealthStateProbe.FieldSnapshot> snapshots = new ArrayList<>();
+        List<Field> fields = new ArrayList<>();
+        int depth = 0;
+        for (Class<?> c = type; c != null && c != Object.class && c != LivingEntity.class; c = c.getSuperclass(), depth++) {
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) {
+                    continue;
+                }
+                HealthStateProbe.NumericKind kind = HealthStateProbe.numericKindOf(f.getType());
+                if (!HealthStateProbe.isNumeric(kind)) {
+                    continue;
+                }
+                snapshots.add(new HealthStateProbe.FieldSnapshot(f.getName(), kind, 0.0d, depth));
+                fields.add(f);
+            }
+        }
+        for (int idx : HealthStateProbe.selectAccumulatedDamageFieldCandidates(snapshots)) {
+            Field f = fields.get(idx);
+            try {
+                f.setAccessible(true);
+                return f;
+            } catch (Throwable ignored) {
+                // 不可写，试下一个
+            }
+        }
+        return null;
     }
 
     private record AddDamageHandle(MethodHandle handle, boolean needsSource, boolean doubleArg) {}
