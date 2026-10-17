@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "wenxingtools:block/wenxing_platform" }
+  }
+}

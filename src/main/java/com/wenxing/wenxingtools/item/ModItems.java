@@ -29,6 +29,10 @@ public class ModItems {
                     () -> new WenxingTorchItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
                             new Item.Properties(), Direction.DOWN));
 
+    public static final RegistryObject<Item> WENXING_PLATFORM =
+            ITEMS.register("wenxing_platform",
+                    () -> new WenxingPlatformItem(ModBlocks.WENXING_PLATFORM.get(), new Item.Properties()));
+
     public static final RegistryObject<Item> GENERIC_SPAWN_EGG =
             ITEMS.register("generic_spawn_egg",
                     () -> new GenericSpawnEggItem(new Item.Properties().stacksTo(64)));

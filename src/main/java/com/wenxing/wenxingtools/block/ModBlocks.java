@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.block;
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -45,6 +46,10 @@ public class ModBlocks {
 
     public static final RegistryObject<Block> WENXING_WALL_TORCH =
             BLOCKS.register("wenxing_wall_torch", () -> new WenxingWallTorchBlock(torchProperties(), PURPLE_FLAME));
+
+    public static final RegistryObject<Block> WENXING_PLATFORM =
+            BLOCKS.register("wenxing_platform",
+                    () -> new WenxingPlatformBlock(BlockBehaviour.Properties.copy(Blocks.SMOOTH_STONE)));
 
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
