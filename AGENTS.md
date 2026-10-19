@@ -60,7 +60,7 @@
 | Capability 字段 | 序列化、备份、登录同步、死亡克隆、安全默认 |
 | 增幅附魔 | 等级解析、防重入、缓存、对玩家是否误伤 |
 | 掉落/精魂/多合一 | 合并保护、拆条、拾取、磁铁兼容 |
-| Mixin / AT | 目标签名、优先级（**越小越先**）、自检、降级 |
+| Mixin / AT | 目标签名（**用 `javap` 核对 patch 后的产物**：Forge 新增方法不在 SRG 映射表内、运行期保持原名，别按「SRG jar 里没有就是不存在」判断）、handler 的 `static` 修饰符与形参（必须与目标方法一致，错误只在**运行期**暴露）、优先级（**越小越先**）、自检、降级 |
 | 命令/按键 | 权限、冷却、提示 |
 | 集成 | 软依赖是否仍命中；缺失静默 |
 
@@ -109,7 +109,9 @@
 
 **T1 —— 隔离逻辑验证（允许）**：位置限 `.rivet/scratch/` 的一次性探针，交付前删除。手段用 `jshell`、单文件 `java Foo.java`（JDK 11+）或项目自带 runner，**不得引入新依赖**。准入条件是**被测逻辑不依赖 MC 运行时**——把判定/计算抽成 `static` 纯函数、把状态机抽成不依赖 `Level` 的纯类。断言逐条输出 `PASS/FAIL` + 实际值，**不得为让它通过而弱化断言**。证据格式 `verify: T1 | <探针路径> | <N passed / M failed>`。
 
-**T2 —— 无头运行时冒烟（允许）**：`.\gradlew.bat runServer --args="nogui"`（后台）——本仓库 ForgeGradle 的 `runServer` **不接受裸 `--nogui`**（报 `Unknown command-line option '--nogui'`，`build.gradle` 的 runs 块也未配 args），必须经 Gradle 的 `--args` 传递；配置 `online-mode=false`、`level-type=flat` 缩短启动。注意 `--args="nogui"` 下 stdin 一旦关闭（含管道 EOF）服务端会**就绪后立即自行退出**，因此「运行若干 tick」需另行保持 stdin 开启（本仓库尚未以此方式验证过）。校验 MOD 加载无异常、`/summon <modid>:<entity>` 成功、运行若干 tick 后 `logs/latest.log` 无 `ERROR`／未捕获异常；有 Mixin 时确认无注入失败或冲突（Forge 在启动期报告）。**限时（建议 5 分钟）后强制 kill，日志落盘 `.rivet/scratch/`；不得以「服务端起来了没报错」宣称功能正确。禁止 `runClient`（图形环境不可控，属 T3）。** 证据格式 `verify: T2 | runServer <时长> | log 无 ERROR | <校验点结果>`。
+**T2 —— 无头运行时冒烟（允许）**：`.\gradlew.bat runServer --args="nogui"`（后台）——本仓库 ForgeGradle 的 `runServer` **不接受裸 `--nogui`**（报 `Unknown command-line option '--nogui'`，`build.gradle` 的 runs 块也未配 args），必须经 Gradle 的 `--args` 传递；配置 `online-mode=false`、`level-type=flat` 缩短启动。注意 `--args="nogui"` 下 stdin 一旦关闭（含管道 EOF）服务端会**就绪后立即自行退出**，因此「运行若干 tick」需另行保持 stdin 开启（本仓库 2026-10-20 实测：经 Gradle 后台启动并重定向输出时，服务端可保持运行 5 分钟以上不自行退出）。校验 MOD 加载无异常、`/summon <modid>:<entity>` 成功、运行若干 tick 后 `logs/latest.log` 无 `ERROR`／未捕获异常；有 Mixin 时确认无注入失败或冲突（Forge 在启动期报告）。**限时（建议 5 分钟）后强制 kill，日志落盘 `.rivet/scratch/`；不得以「服务端起来了没报错」宣称功能正确。禁止 `runClient`（图形环境不可控，属 T3）。** 证据格式 `verify: T2 | runServer <时长> | log 无 ERROR | <校验点结果>`。
+
+**Mixin 改动的强制门**：新增或修改 Mixin 注入点，**必须跑一次 T2**——注入目标的修饰符/形参不匹配只会以 `MixinApplyError` / `InvalidInjectionException` 形式在**启动期**暴露，编译与 T0 都拦不住（本仓库已实际踩到两次）。T2 通过的最低判据：日志出现 `Mixing <YourMixin> from <modid>.mixins.json into <target>`，且无 `MixinApplyError` / `InvalidInjectionException` / `FATAL`，服务端到达 `Done (…)! For help, type "help"`。
 
 **T3 登记义务（硬性）**：凡**只有真实客户端能验**的断言，必须在**计划阶段**登记，不得等到交付时才说验不了。登记项含：断言、为何不可自动化、人工测点编号、若失败的回退方案。交付报告必须逐条列出 `unverified: T3 | <断言> | 障碍: <具体> | 人工测点 #N`；**禁止**用「未实机验证」一句笼统带过。
 
@@ -138,7 +140,9 @@ unverified: T3 | <断言>          | 障碍: <具体> | 人工测点 #N
 
 ### 建议人工测点
 
-权威特性开关与丢弃倍增；无敌/飞行/光环；资源增幅三通道与 KP0；七种附魔；铁砧合并；镐挖掘与飞行挖掘；多合一拾取/防合并；装 Malum 精魂单实体；刷怪笼红石；命令按键。
+权威特性开关与丢弃倍增；无敌/飞行/光环；资源增幅三通道与 KP0；七种附魔；铁砧合并；镐挖掘与飞行挖掘；多合一拾取/防合并；装 Malum 精魂单实体；刷怪笼红石；命令按键；**击杀掉落补扫**（存在「同为最低优先级、注册更晚」的第三方掉落追加源时，其追加物品是否也被放大；无该来源时至少确认原版战利品数量不变）。
+
+**日志分级约定**：诊断用途的运行时观测点用 `LOGGER.debug`（正常游戏零输出、零可感知影响，排查时调日志级别即可看见）；异常与降级路径用 `LOGGER.warn` 并带 `toString()` 与堆栈；**不要**在高频路径（掉落、命中、tick）上使用 `LOGGER.info`——刷怪场级别的调用频率会刷屏并产生磁盘写压力。
 
 ---
 

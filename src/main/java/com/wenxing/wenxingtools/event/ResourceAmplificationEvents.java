@@ -148,6 +148,11 @@ public final class ResourceAmplificationEvents {
             }
             drops.removeAll(late);
             drops.add(merged);
+            if (WenXingTools.LOGGER.isDebugEnabled()) {
+                WenXingTools.LOGGER.debug(
+                        "[resource_amp] late drops swept: type={}, items={}, level={}, entries={}",
+                        entity.getType(), late.size(), resourceLevel, totals.size());
+            }
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[resource_amp] late drops sweep failed: {}", t.toString(), t);
         }
