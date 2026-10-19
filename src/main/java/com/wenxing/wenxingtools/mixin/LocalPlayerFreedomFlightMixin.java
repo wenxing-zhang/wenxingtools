@@ -21,7 +21,9 @@ public abstract class LocalPlayerFreedomFlightMixin {
 
     @Inject(
             method = "aiStep",
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;aiStep()V"),
+            // super.aiStep() 的字节码 owner 是直接父类 AbstractClientPlayer（而非 Player），
+            // 写成 Player 会匹配不到注入点并抛 InjectionError，勿改回。
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/AbstractClientPlayer;aiStep()V"),
             require = 1)
     private void wenxingtools$freedomFlightVerticalInput(CallbackInfo ci) {
         LocalPlayer self = (LocalPlayer) (Object) this;
