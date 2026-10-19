@@ -2,11 +2,13 @@ package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.integration.TaczIntegration;
+import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -174,6 +176,30 @@ public final class AmpSupport {
             }
         }
         return null;
+    }
+
+    /**
+     * 击杀归属：伤害源里解析不到玩家时，回退到实体自记的击杀者（{@link LivingEntity#getKillCredit()}）。
+     * <p>
+     * 第三方用「无来源实体」的伤害收尾时（如 {@code damageSources().magic()}，{@code getEntity()} 为 null），
+     * 伤害源中根本没有玩家可识别；但同一 tick 内此前命中已经 setLastHurtByPlayer 记下玩家。
+     * 不回退的后果是资源增幅倍率归零、掠蛋整段跳过。
+     */
+    public static Player resolveKillAttribution(Player sourceAttacker, LivingEntity target) {
+        if (sourceAttacker != null) {
+            if (CombatUtil.isNotValidAttackerPlayer(sourceAttacker)) {
+                return null;
+            }
+            return sourceAttacker;
+        }
+        if (target == null) {
+            return null;
+        }
+        LivingEntity credit = target.getKillCredit();
+        if (!(credit instanceof Player player) || CombatUtil.isNotValidAttackerPlayer(player)) {
+            return null;
+        }
+        return player;
     }
 
 

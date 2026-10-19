@@ -44,10 +44,8 @@ public final class ResourceAmplificationEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDrops(LivingDropsEvent event) {
-        Player player = AmpSupport.resolvePlayerAttacker(event.getSource());
-        if (player != null && CombatUtil.isNotValidAttackerPlayer(player)) {
-            player = null;
-        }
+        Player player = AmpSupport.resolveKillAttribution(
+                AmpSupport.resolvePlayerAttacker(event.getSource()), event.getEntity());
 
         // 取消掉落时不得合并/吞精魂
         if (event.isCanceled()) {
