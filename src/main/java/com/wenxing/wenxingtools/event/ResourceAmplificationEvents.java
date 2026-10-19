@@ -68,6 +68,9 @@ public final class ResourceAmplificationEvents {
         if (RESOURCE_DROP_CONTEXT.get().add(event.getEntity())) {
             try {
                 applyResourceAmplificationToLivingDrops(event, resourceLevel);
+            } catch (OutOfMemoryError e) {
+                // 堆已耗尽时继续兜底只会把同一路径再跑一遍，交给外层终止
+                throw e;
             } catch (Throwable t) {
                 WenXingTools.LOGGER.warn("[resource_amp] living drops merge failed: {}", t.toString(), t);
             } finally {
@@ -138,21 +141,42 @@ public final class ResourceAmplificationEvents {
             if (totals.isEmpty()) {
                 return;
             }
-            // 先构造再替换：构造失败时原物品仍在集合里，不会被整段吞掉
-            com.wenxing.wenxingtools.entity.MultiStackItemEntity merged =
-                    com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
-                            serverLevel, entity.getX(), entity.getY(), entity.getZ(),
-                            com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals));
-            if (merged == null) {
+            List<ItemStack> lateStacks = com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals);
+            if (lateStacks.isEmpty()) {
                 return;
             }
-            drops.removeAll(late);
-            drops.add(merged);
+            // 优先并入主流程已生成的多合一实体，避免一次死亡落地两个聚合体
+            com.wenxing.wenxingtools.entity.MultiStackItemEntity existing = null;
+            for (ItemEntity candidate : drops) {
+                if (candidate instanceof com.wenxing.wenxingtools.entity.MultiStackItemEntity multiStack) {
+                    existing = multiStack;
+                    break;
+                }
+            }
+            if (existing != null) {
+                for (ItemStack stack : lateStacks) {
+                    existing.mergeStack(stack);
+                }
+                drops.removeAll(late);
+            } else {
+                // 先构造再替换：构造失败时原物品仍在集合里，不会被整段吞掉
+                com.wenxing.wenxingtools.entity.MultiStackItemEntity merged =
+                        com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
+                                serverLevel, entity.getX(), entity.getY(), entity.getZ(), lateStacks);
+                if (merged == null) {
+                    return;
+                }
+                drops.removeAll(late);
+                drops.add(merged);
+            }
             if (WenXingTools.LOGGER.isDebugEnabled()) {
                 WenXingTools.LOGGER.debug(
-                        "[resource_amp] late drops swept: type={}, items={}, level={}, entries={}",
-                        entity.getType(), late.size(), resourceLevel, totals.size());
+                        "[resource_amp] late drops swept: type={}, items={}, level={}, entries={}, mergedIntoExisting={}",
+                        entity.getType(), late.size(), resourceLevel, totals.size(), existing != null);
             }
+        } catch (OutOfMemoryError e) {
+            // 堆已耗尽时继续兜底只会把同一路径再跑一遍，交给外层终止
+            throw e;
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[resource_amp] late drops sweep failed: {}", t.toString(), t);
         }
