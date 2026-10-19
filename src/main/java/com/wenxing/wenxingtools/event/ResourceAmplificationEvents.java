@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import com.wenxing.wenxingtools.item.ModSpawnEggs;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -132,7 +133,7 @@ public final class ResourceAmplificationEvents {
                 if (stack.isEmpty()) {
                     continue;
                 }
-                if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
+                if (ModSpawnEggs.isAmplificationExemptEgg(stack)) {
                     ItemStack eggKey = stack.copy();
                     eggKey.setCount(1);
                     totals.merge(new com.wenxing.wenxingtools.util.DropStackUtil.StackKey(eggKey), (long) stack.getCount(), Long::sum);
@@ -338,7 +339,7 @@ public final class ResourceAmplificationEvents {
                 continue;
             }
             // 刷怪蛋不参与放大：原样并入合计（设计 §5.3「刷怪蛋不放大」；此前漏判，击杀掉落的蛋会被一起复制放大）
-            if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
+            if (ModSpawnEggs.isAmplificationExemptEgg(stack)) {
                 ItemStack eggKey = stack.copy();
                 eggKey.setCount(1);
                 totals.merge(new com.wenxing.wenxingtools.util.DropStackUtil.StackKey(eggKey), (long) stack.getCount(), Long::sum);

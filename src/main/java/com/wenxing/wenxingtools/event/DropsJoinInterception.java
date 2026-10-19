@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.entity.MultiStackItemEntity;
 import com.wenxing.wenxingtools.integration.MalumSpiritIntegration;
+import com.wenxing.wenxingtools.item.ModSpawnEggs;
 import com.wenxing.wenxingtools.util.DropWindowUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -51,7 +52,12 @@ public final class DropsJoinInterception {
     private DropsJoinInterception() {
     }
 
-    @SubscribeEvent(priority = EventPriority.LOWEST)
+    /**
+     * 开窗必须早于其他模组的死亡监听器：第三方常在自己的 {@code LivingDeathEvent} 监听器里当场
+     * {@code spawnAtLocation}，那些物品在事件分发到我们之前就已入世，用 {@code LOWEST} 会整类漏掉。
+     * {@code die()} 在本事件分发完毕后才进 {@code dropAllDeathLoot}，故开窗仍早于原版掉落阶段。
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onLivingDeath(LivingDeathEvent event) {
         if (event.isCanceled()) {
             return;
@@ -121,7 +127,7 @@ public final class DropsJoinInterception {
             return;
         }
         // 刷怪蛋不放大，与主流程口径一致
-        if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
+        if (ModSpawnEggs.isAmplificationExemptEgg(stack)) {
             return;
         }
         long multiplier = AmpSupport.computeKillDropMultiplier(window.resourceLevel, stack);
