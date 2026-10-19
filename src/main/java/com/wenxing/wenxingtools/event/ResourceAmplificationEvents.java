@@ -29,6 +29,8 @@ public final class ResourceAmplificationEvents {
 
     private static final ThreadLocal<Set<LivingEntity>> RESOURCE_DROP_CONTEXT = ThreadLocal.withInitial(HashSet::new);
     private static final ThreadLocal<Set<LivingEntity>> RESOURCE_XP_CONTEXT = ThreadLocal.withInitial(HashSet::new);
+    private static final ThreadLocal<Integer> LATE_SWEEP_LEVEL = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> LATE_SWEEP_CANCELED = new ThreadLocal<>();
 
     private static final int RESOURCE_CONTEXT_SHRINK_THRESHOLD = 64;
 
@@ -46,6 +48,8 @@ public final class ResourceAmplificationEvents {
     public static void onLivingDrops(LivingDropsEvent event) {
         Player player = AmpSupport.resolveKillAttribution(
                 AmpSupport.resolvePlayerAttacker(event.getSource()), event.getEntity());
+        LATE_SWEEP_CANCELED.set(event.isCanceled());
+        LATE_SWEEP_LEVEL.set(0);
 
         // 取消掉落时不得合并/吞精魂
         if (event.isCanceled()) {
@@ -58,6 +62,7 @@ public final class ResourceAmplificationEvents {
         int resourceLevel = player != null
                 ? AmpSupport.resolveResourceLevel(player, event.getSource().getDirectEntity())
                 : 0;
+        LATE_SWEEP_LEVEL.set(resourceLevel);
 
         // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack
         if (RESOURCE_DROP_CONTEXT.get().add(event.getEntity())) {
@@ -73,6 +78,78 @@ public final class ResourceAmplificationEvents {
 
         if (player != null) {
             SpawnEggHarvest.dropSpawnEggHarvestLoot(event, player);
+        }
+    }
+
+    /**
+     * 事件之后追加掉落的补扫。{@code LivingDropsEvent} 里同为 {@code LOWEST} 但注册更晚的监听器，
+     * 其追加的物品在主流程遍历时还不存在；而原版在事件返回后才会把集合逐个入世，
+     * 因此由 Mixin 挂在 {@code dropAllDeathLoot} 的关窗调用之后补一次同样口径的放大。
+     * <p>
+     * 只处理精确类 {@code ItemEntity}：多合一聚合体、Malum 待碎裂精魂、以及其它自定义物品实体一律放行，
+     * 避免二次放大与破坏第三方语义。
+     */
+    public static void sweepLateDrops(LivingEntity entity, java.util.Collection<ItemEntity> drops) {
+        Boolean canceled = LATE_SWEEP_CANCELED.get();
+        Integer levelBoxed = LATE_SWEEP_LEVEL.get();
+        LATE_SWEEP_CANCELED.remove();
+        LATE_SWEEP_LEVEL.remove();
+        if (drops == null || drops.isEmpty() || canceled == null || canceled) {
+            return;
+        }
+        if (!(entity.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        int resourceLevel = levelBoxed != null ? levelBoxed : 0;
+        try {
+            List<ItemEntity> late = new ArrayList<>();
+            for (ItemEntity itemEntity : drops) {
+                if (itemEntity == null || itemEntity.getClass() != ItemEntity.class) {
+                    continue;
+                }
+                if (com.wenxing.wenxingtools.integration.MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
+                    continue;
+                }
+                late.add(itemEntity);
+            }
+            if (late.isEmpty()) {
+                return;
+            }
+            java.util.Map<com.wenxing.wenxingtools.util.DropStackUtil.StackKey, Long> totals = new java.util.LinkedHashMap<>();
+            for (ItemEntity itemEntity : late) {
+                ItemStack stack = itemEntity.getItem();
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                if (stack.getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
+                    ItemStack eggKey = stack.copy();
+                    eggKey.setCount(1);
+                    totals.merge(new com.wenxing.wenxingtools.util.DropStackUtil.StackKey(eggKey), (long) stack.getCount(), Long::sum);
+                    continue;
+                }
+                long multiplier = AmpSupport.computeKillDropMultiplier(resourceLevel, stack);
+                long total = (long) stack.getCount() * multiplier;
+                if (total > 0) {
+                    ItemStack keyStack = stack.copy();
+                    keyStack.setCount(1);
+                    totals.merge(new com.wenxing.wenxingtools.util.DropStackUtil.StackKey(keyStack), total, Long::sum);
+                }
+            }
+            if (totals.isEmpty()) {
+                return;
+            }
+            // 先构造再替换：构造失败时原物品仍在集合里，不会被整段吞掉
+            com.wenxing.wenxingtools.entity.MultiStackItemEntity merged =
+                    com.wenxing.wenxingtools.entity.MultiStackItemEntity.fromStacks(
+                            serverLevel, entity.getX(), entity.getY(), entity.getZ(),
+                            com.wenxing.wenxingtools.util.DropStackUtil.totalsToStacks(totals));
+            if (merged == null) {
+                return;
+            }
+            drops.removeAll(late);
+            drops.add(merged);
+        } catch (Throwable t) {
+            WenXingTools.LOGGER.warn("[resource_amp] late drops sweep failed: {}", t.toString(), t);
         }
     }
 
