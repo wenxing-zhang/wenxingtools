@@ -7,11 +7,20 @@ package com.wenxing.wenxingtools.util;
  */
 public final class DropWindowUtil {
 
-    /** 窗口长度（tick）。第三方可能在死亡同栈内生成，也可能 server.execute 延后一刻。 */
-    public static final int WINDOW_TICKS = 5;
+    /**
+     * 窗口长度（tick）。{@code 1} = 死亡当刻与下一 tick。
+     * <p>
+     * 窗口是**推断**归属：窗口越长，被误认成击杀产物的无关落地物越多（方块破坏掉落、物流 mod 输出都是
+     * 无 thrower 的普通物品实体，且都在同一时空里入世）。收窄到「当刻 + 下一 tick」覆盖当场生成与
+     * {@code server.execute} / 排程一刻后的生成，同时把误伤面压到最小。
+     * <p>
+     * 若要退回更宽的覆盖（例如第三方延后才生成、需要 5 tick），把本常量改回 {@code 5} 并把
+     * {@link #RADIUS} 改回 {@code 8.0D} 即可，其余代码无需改动。
+     */
+    public static final int WINDOW_TICKS = 1;
 
-    /** 以死亡点为中心的判定半径（格）。 */
-    public static final double RADIUS = 8.0D;
+    /** 以死亡点为中心的判定半径（格）。Boss 碰撞箱边缘生成也落在其内，再放宽只会扩大误伤面。 */
+    public static final double RADIUS = 4.0D;
 
     private DropWindowUtil() {
     }

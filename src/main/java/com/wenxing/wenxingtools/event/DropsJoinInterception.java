@@ -108,7 +108,8 @@ public final class DropsJoinInterception {
         if (!(event.getEntity() instanceof ItemEntity itemEntity)) {
             return;
         }
-        if (itemEntity instanceof MultiStackItemEntity) {
+        // 只认精确类：本模组的多合一聚合体与第三方自定义物品子类语义未知，改 count 可能破坏其不变式
+        if (itemEntity.getClass() != ItemEntity.class) {
             return;
         }
         if (MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
