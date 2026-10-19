@@ -96,7 +96,10 @@ public final class ResourceAmplificationEvents {
     /**
      * 事件之后追加掉落的补扫。{@code LivingDropsEvent} 里同为 {@code LOWEST} 但注册更晚的监听器，
      * 其追加的物品在主流程遍历时还不存在；而原版在事件返回后才会把集合逐个入世，
-     * 因此由 Mixin 挂在 {@code dropAllDeathLoot} 的关窗调用之后补一次同样口径的放大。
+     * 因此由 Mixin 挂在 {@link net.minecraftforge.common.ForgeHooks#onLivingDrops} 返回之后补一次同样口径的放大。
+     * <p>
+     * 注入点必须是事件<b>之后</b>：{@code captureDrops(null)} 早于事件，挂在那里读到的是上一次死亡留下的
+     * {@code LATE_SWEEP_*} 上下文，且集合中尚无追加物。
      * <p>
      * 只处理精确类 {@code ItemEntity}：多合一聚合体、Malum 待碎裂精魂、以及其它自定义物品实体一律放行，
      * 避免二次放大与破坏第三方语义。
