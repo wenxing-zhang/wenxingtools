@@ -108,8 +108,8 @@ public final class DropsJoinInterception {
         if (!(event.getEntity() instanceof ItemEntity itemEntity)) {
             return;
         }
-        // 只认精确类：本模组的多合一聚合体与第三方自定义物品子类语义未知，改 count 可能破坏其不变式
-        if (itemEntity.getClass() != ItemEntity.class) {
+        // 本模组聚合体已在主流程放完倍率，再改 count 会二次放大
+        if (itemEntity instanceof MultiStackItemEntity) {
             return;
         }
         if (MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
@@ -123,24 +123,30 @@ public final class DropsJoinInterception {
         if (!DropWindowUtil.inWindow(serverLevel.getGameTime(), window.tick, distanceSqr)) {
             return;
         }
-        ItemStack stack = itemEntity.getItem();
-        if (stack.isEmpty()) {
-            return;
-        }
-        // 刷怪蛋不放大，与主流程口径一致
-        if (ModSpawnEggs.isAmplificationExemptEgg(stack)) {
-            return;
-        }
-        long multiplier = AmpSupport.computeKillDropMultiplier(window.resourceLevel, stack);
-        long total = (long) stack.getCount() * multiplier;
-        if (total <= stack.getCount()) {
-            return;
-        }
-        stack.setCount((int) Math.min(total, Integer.MAX_VALUE));
-        if (DEBUG) {
-            WenXingTools.LOGGER.info(
-                    "[resource_amp] join amplified: item={} from={} to={} level={}",
-                    stack.getItem(), stack.getCount() / Math.max(1, multiplier), stack.getCount(), window.resourceLevel);
+        // 第三方物品实体的 getItem/setItem 可能被覆写，异常只跳过该实体，不得中断事件分发
+        try {
+            ItemStack stack = itemEntity.getItem();
+            if (stack.isEmpty()) {
+                return;
+            }
+            // 刷怪蛋不放大，与主流程口径一致
+            if (ModSpawnEggs.isAmplificationExemptEgg(stack)) {
+                return;
+            }
+            long multiplier = AmpSupport.computeKillDropMultiplier(window.resourceLevel, stack);
+            long total = (long) stack.getCount() * multiplier;
+            if (total <= stack.getCount()) {
+                return;
+            }
+            stack.setCount((int) Math.min(total, Integer.MAX_VALUE));
+            if (DEBUG) {
+                WenXingTools.LOGGER.info(
+                        "[resource_amp] join amplified: item={} from={} to={} level={}",
+                        stack.getItem(), stack.getCount() / Math.max(1, multiplier), stack.getCount(), window.resourceLevel);
+            }
+        } catch (Throwable t) {
+            WenXingTools.LOGGER.warn("[resource_amp] join amplify skipped: entity={} {}",
+                    itemEntity.getClass().getName(), t.toString(), t);
         }
     }
 

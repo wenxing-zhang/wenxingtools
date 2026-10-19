@@ -43,7 +43,11 @@ public final class AmpSupport {
     }
 
     public static int computeResourceFactor(int level) {
-        return level * AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL;
+        if (level <= 0) {
+            return 0;
+        }
+        return (int) Math.min((long) level * (long) AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL,
+                (long) Integer.MAX_VALUE);
     }
 
     /**
@@ -55,9 +59,10 @@ public final class AmpSupport {
         if (level <= 0 || stack == null || stack.isEmpty()) {
             return 0;
         }
-        return level * (stack.getMaxStackSize() > 1
+        int perLevel = stack.getMaxStackSize() > 1
                 ? AmpConstants.RESOURCE_FACTOR_STACKABLE_PER_LEVEL
-                : AmpConstants.RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL);
+                : AmpConstants.RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL;
+        return (int) Math.min((long) level * (long) perLevel, (long) Integer.MAX_VALUE);
     }
 
     /**
@@ -77,25 +82,9 @@ public final class AmpSupport {
         return Math.min(perCopy * AmpConstants.KILL_DROP_COPIES, (long) Integer.MAX_VALUE);
     }
 
-    public static Component buildResourceAmplificationToggleMessage(boolean newState, int displayLevel) {
-        int factor = computeResourceFactor(displayLevel);
-        String base;
-        ChatFormatting color;
-        if (newState) {
-            color = ChatFormatting.GREEN;
-            if (displayLevel > 0) {
-
-                int totalFactor = factor + 1;
-                int xpFactor = computeResourceFactor(displayLevel) * (int) AmpConstants.RESOURCE_XP_MULTIPLIER;
-                base = "资源增幅附魔：已开启（当前资源倍率: " + totalFactor + "，经验倍率: " + xpFactor + "）";
-            } else {
-                base = "资源增幅附魔：已开启";
-            }
-        } else {
-            color = ChatFormatting.RED;
-            base = "资源增幅附魔：已关闭";
-        }
-        return Component.literal(base).withStyle(color);
+    public static Component buildResourceAmplificationToggleMessage(boolean newState) {
+        return Component.literal(newState ? "资源增幅附魔：已开启" : "资源增幅附魔：已关闭")
+                .withStyle(newState ? ChatFormatting.GREEN : ChatFormatting.RED);
     }
 
 
@@ -271,7 +260,7 @@ public final class AmpSupport {
             player.getPersistentData().putLong(RESOURCE_AMPLIFICATION_SWITCH_CD_TAG, now);
             boolean newState = !isResourceAmplificationEnabled(player);
             setResourceAmplificationEnabled(player, newState);
-            player.displayClientMessage(buildResourceAmplificationToggleMessage(newState, level), true);
+            player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), true);
             return true;
         }
         return false;

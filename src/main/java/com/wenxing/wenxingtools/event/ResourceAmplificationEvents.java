@@ -119,7 +119,9 @@ public final class ResourceAmplificationEvents {
         try {
             List<ItemEntity> late = new ArrayList<>();
             for (ItemEntity itemEntity : drops) {
-                if (itemEntity == null || itemEntity.getClass() != ItemEntity.class) {
+                // 只排本模组聚合体（拒二次入料）与 Malum 待碎裂精魂；其余物品实体（含第三方子类）一并吃增幅
+                if (itemEntity == null
+                        || itemEntity instanceof com.wenxing.wenxingtools.entity.MultiStackItemEntity) {
                     continue;
                 }
                 if (com.wenxing.wenxingtools.integration.MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
@@ -219,7 +221,10 @@ public final class ResourceAmplificationEvents {
         try {
             int factor = AmpSupport.computeResourceFactor(resourceLevel);
 
-            long newXp = (long) event.getOriginalExperience() * (long) factor * AmpConstants.RESOURCE_XP_MULTIPLIER;
+            long newXp = com.wenxing.wenxingtools.util.SaturatingMath.multiply(
+                    com.wenxing.wenxingtools.util.SaturatingMath.multiply(
+                            event.getOriginalExperience(), factor),
+                    AmpConstants.RESOURCE_XP_MULTIPLIER);
             int granted = (int) Math.min(newXp, (long) AmpConstants.RESOURCE_XP_CAP);
 
             event.setDroppedExperience(0);
@@ -260,7 +265,8 @@ public final class ResourceAmplificationEvents {
         if (resourceLevel <= 0) {
             return;
         }
-        long amplified = (long) exp * (1L + (long) AmpSupport.computeResourceFactor(resourceLevel));
+        long amplified = com.wenxing.wenxingtools.util.SaturatingMath.multiply(exp,
+                1L + (long) AmpSupport.computeResourceFactor(resourceLevel));
         event.setExpToDrop((int) Math.min(amplified, (long) AmpConstants.RESOURCE_XP_CAP));
     }
 
@@ -321,7 +327,9 @@ public final class ResourceAmplificationEvents {
         List<ItemEntity> passthrough = new ArrayList<>();
 
         for (ItemEntity itemEntity : event.getDrops()) {
-            if (com.wenxing.wenxingtools.integration.MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
+            // 本模组聚合体不再入料：多合一必须拒邻居合并
+            if (itemEntity instanceof com.wenxing.wenxingtools.entity.MultiStackItemEntity
+                    || com.wenxing.wenxingtools.integration.MalumSpiritIntegration.isShatterPrimedDrop(itemEntity)) {
                 passthrough.add(itemEntity);
                 continue;
             }
