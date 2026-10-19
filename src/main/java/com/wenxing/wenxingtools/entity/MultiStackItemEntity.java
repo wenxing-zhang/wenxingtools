@@ -295,7 +295,10 @@ public class MultiStackItemEntity extends ItemEntity {
         }
         stacks.clear();
         ListTag list = tag.getList(TAG_STACKS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
+        // 存档条目数不设预截断时，损坏/被构造的 NBT 会让循环长度与逐条 warn 条数随文件大小线性增长
+        int limit = Math.min(list.size(), MAX_STORED_ENTRIES);
+        int skippedEntries = 0;
+        for (int i = 0; i < limit; i++) {
             CompoundTag entry = list.getCompound(i);
             ItemStack stack = ItemStack.of(entry.getCompound("stack"));
             if (!stack.isEmpty()) {
@@ -303,8 +306,16 @@ public class MultiStackItemEntity extends ItemEntity {
                 if (count > 0) {
                     stack.setCount(count);
                 }
-                splitInto(stacks, stack);
+                if (!splitInto(stacks, stack, MAX_STORED_ENTRIES - stacks.size())) {
+                    skippedEntries++;
+                }
             }
+        }
+        int droppedEntries = list.size() - limit;
+        if (skippedEntries > 0 || droppedEntries > 0) {
+            WenXingTools.LOGGER.warn(
+                    "[multi_stack_item] entry budget exhausted: kept={}, overBudgetEntries={}, droppedEntries={}",
+                    stacks.size(), skippedEntries, droppedEntries);
         }
         if (stacks.isEmpty()) {
             ItemStack fallback = super.getItem();
