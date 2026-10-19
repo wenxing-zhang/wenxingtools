@@ -34,6 +34,8 @@ public final class ResourceAmplificationEvents {
 
     private static final int RESOURCE_CONTEXT_SHRINK_THRESHOLD = 64;
 
+    private static final boolean DEBUG_DROPS = Boolean.getBoolean("wenxingtools.debug_drops");
+
     private ResourceAmplificationEvents() {
     }
 
@@ -50,6 +52,12 @@ public final class ResourceAmplificationEvents {
                 AmpSupport.resolvePlayerAttacker(event.getSource()), event.getEntity());
         LATE_SWEEP_CANCELED.set(event.isCanceled());
         LATE_SWEEP_LEVEL.set(0);
+
+        if (DEBUG_DROPS) {
+            WenXingTools.LOGGER.info(
+                    "[resource_amp] drops: entity={} canceled={} playerResolved={} drops={}",
+                    event.getEntity().getType(), event.isCanceled(), player != null, event.getDrops().size());
+        }
 
         // 取消掉落时不得合并/吞精魂
         if (event.isCanceled()) {
