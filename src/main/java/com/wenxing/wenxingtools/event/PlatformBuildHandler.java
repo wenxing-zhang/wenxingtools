@@ -116,35 +116,48 @@ public final class PlatformBuildHandler {
             while (processed < budget && cursor.advance()) {
                 processed++;
                 at.set(cursor.x(), cursor.y(), cursor.z());
-                boolean occupied = harvest(at);
-                switch (cursor.phase()) {
-                    case FILL -> {
-                        if (occupied) {
-                            fillReplaced++;
-                        }
-                        level.setBlock(at, Blocks.SMOOTH_STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
-                        filled++;
-                    }
-                    case RING -> {
-                        if (occupied) {
-                            level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                            ringCleared++;
-                        }
-                    }
-                    case ABOVE -> {
-                        if (occupied) {
-                            level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                            aboveCleared++;
-                        }
-                    }
-                    default -> {
-                    }
+                // 单格失败不能中断整片生成，更不能把异常抛到服务端 tick 线程：
+                // 第三方方块可能在自己的 onRemove / 战利品表里抛错，一旦冒出去整台服都会受影响。
+                try {
+                    applyCell();
+                } catch (OutOfMemoryError e) {
+                    throw e;
+                } catch (Throwable t) {
+                    WenXingTools.LOGGER.warn("[wenxing_platform] cell failed at {}: {}", at, t.toString(), t);
                 }
             }
             if (cursor.phase() == PlatformGenerator.Phase.DONE) {
                 finished = true;
             }
             return processed;
+        }
+
+        /** 单格结算：先按原方块取战利品，再按当前段写入/清除 */
+        private void applyCell() {
+            boolean occupied = harvest(at);
+            switch (cursor.phase()) {
+                case FILL -> {
+                    if (occupied) {
+                        fillReplaced++;
+                    }
+                    level.setBlock(at, Blocks.SMOOTH_STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    filled++;
+                }
+                case RING -> {
+                    if (occupied) {
+                        level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                        ringCleared++;
+                    }
+                }
+                case ABOVE -> {
+                    if (occupied) {
+                        level.setBlock(at, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                        aboveCleared++;
+                    }
+                }
+                default -> {
+                }
+            }
         }
 
         /** 按原方块结算战利品；容器内容不在这里补（原版 onRemove / 潜影盒战利品表已带走） */
