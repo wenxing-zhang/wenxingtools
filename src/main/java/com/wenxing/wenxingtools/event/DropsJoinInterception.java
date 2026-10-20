@@ -139,11 +139,16 @@ public final class DropsJoinInterception {
             if (total <= stack.getCount()) {
                 return;
             }
-            stack.setCount((int) Math.min(total, Integer.MAX_VALUE));
+            // 必须走 setItem 而不是原地 getItem().setCount()：1.21.1 的 ItemEntity 把物品放在
+            // SynchedEntityData(DATA_ITEM) 里，原地改 count 只动服务端对象，不标脏、不同步，
+            // 客户端会一直看到放大前的数量（拾取时才由服务端结算成新数量）。
+            ItemStack amplified = stack.copy();
+            amplified.setCount((int) Math.min(total, Integer.MAX_VALUE));
+            itemEntity.setItem(amplified);
             if (DEBUG) {
                 WenXingTools.LOGGER.info(
                         "[resource_amp] join amplified: item={} from={} to={} level={}",
-                        stack.getItem(), stack.getCount() / Math.max(1, multiplier), stack.getCount(), window.resourceLevel);
+                        amplified.getItem(), stack.getCount(), amplified.getCount(), window.resourceLevel);
             }
         } catch (Throwable t) {
             WenXingTools.LOGGER.warn("[resource_amp] join amplify skipped: entity={} {}",
