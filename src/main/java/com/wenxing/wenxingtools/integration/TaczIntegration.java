@@ -53,6 +53,14 @@ public class TaczIntegration {
         return isTaczPresent() && entity != null && bulletClass.isInstance(entity);
     }
 
+    /**
+     * 对外暴露的子弹判定：击杀归属解析需要它把「枪械子弹」认成玩家攻击来源。
+     * 子弹不是 {@code Projectile} 子类之外的形态也走同一判据，故不合并到 {@code instanceof Projectile} 分支里。
+     */
+    public static boolean isTaczBulletEntity(@Nullable Entity entity) {
+        return isTaczBullet(entity);
+    }
+
     public static boolean isTaczGunItem(@Nullable ItemStack stack) {
         return isTaczPresent() && stack != null && !stack.isEmpty() && iGunInterface.isInstance(stack.getItem());
     }

@@ -1,4 +1,4 @@
-package com.wenxing.wenxingtools.mixin;
+package com.wenxing.wenxingtools.util;
 
 /**
  * Mixin 落地标记：每个 Mixin 类实现其中一个空接口，Mixin 成功应用时会把这个接口加到目标类上。

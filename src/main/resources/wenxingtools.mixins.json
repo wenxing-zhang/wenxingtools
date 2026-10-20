@@ -13,6 +13,7 @@
     "PlayerDestroySpeedMixin",
     "BlockStateDestroyProgressMixin",
     "ItemEntityMergeGuardMixin",
+    "LivingDropsSweepMixin",
     "PlayerFreedomFlightMixin",
     "ServerFreedomFlightGuardMixin"
   ],

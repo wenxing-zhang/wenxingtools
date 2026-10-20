@@ -1,5 +1,6 @@
 package com.wenxing.wenxingtools.mixin;
 
+import com.wenxing.wenxingtools.util.MixinMarkers;
 import com.wenxing.wenxingtools.entity.FreedomFlightPolicy;
 import com.wenxing.wenxingtools.entity.FreedomFlightService;
 import com.wenxing.wenxingtools.util.MixinSelfCheck;

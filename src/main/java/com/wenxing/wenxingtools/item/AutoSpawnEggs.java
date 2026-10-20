@@ -37,6 +37,18 @@ public final class AutoSpawnEggs {
         return new ItemStack(egg, 1);
     }
 
+    /**
+     * 蛋类不参与掉落放大：原版刷怪蛋与文星生物蛋（后者继承 {@code Item}，不是 {@code SpawnEggItem}）。
+     * 三个放大入口（主流程、事件后补扫、入世层）共用这一口径，避免判据再次分叉。
+     */
+    public static boolean isAmplificationExemptEgg(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        Item item = stack.getItem();
+        return item instanceof SpawnEggItem || item instanceof GenericSpawnEggItem;
+    }
+
     private static Map<EntityType<?>, SpawnEggItem> eggIndex() {
         Map<EntityType<?>, SpawnEggItem> idx = EGG_INDEX;
         if (idx != null) {

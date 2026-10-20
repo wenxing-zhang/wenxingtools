@@ -28,6 +28,13 @@ sourceSets.main.resources {
 
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
+    // JUnit 5 只用于单元测试（testImplementation），不进模组产物。
+    // 镜像优先：本机直连 Maven Central 解析 5.11.4 时长时间无响应，走公共镜像聚合站。
+    maven {
+        name = 'aliyunPublic'
+        url = 'https://maven.aliyun.com/repository/public'
+    }
+    mavenCentral()
 }
 
 base {
@@ -116,6 +123,13 @@ configurations {
 }
 
 dependencies {
+    // 纯逻辑单元测试（AGENTS §3.5 / §3.7 T1 的常驻化）：
+    // 只覆盖不依赖 Minecraft 运行时的判定与计算——饱和运算、窗口判定、平台几何与枚举顺序。
+    // 固定 5.9.2：与当前构建环境已解析的版本一致，避免 BOM 二次解析引入额外下载。
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.9.2"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:5.9.2"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.9.2"
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -179,6 +193,26 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+// 单元测试只跑纯 JDK 逻辑，不启动 Minecraft 运行时（实机行为验证仍归开发者，AGENTS §3.7 T3）。
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+}
+
+// 插件注入的 neoforged 镜像对 JUnit 坐标无响应（实测 15s 无返回），依赖解析会逐个仓库重试并在
+// test 任务上长时间挂起。把 JUnit 组从该仓库排除，只走公共镜像（aliyun / Maven Central）。
+// 必须在插件注入仓库之后再设置，故放在文件末尾。
+repositories.all { repo ->
+    if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository
+            && repo.url != null
+            && repo.url.toString().contains('neoforged.net')) {
+        repo.content { excludeGroupByRegex 'org\\.junit.*' }
+    }
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

@@ -47,6 +47,10 @@ public final class ModItems {
                     () -> new WenxingTorchItem(ModBlocks.WENXING_TORCH.get(), ModBlocks.WENXING_WALL_TORCH.get(),
                             new Item.Properties(), Direction.DOWN));
 
+    public static final DeferredItem<WenxingPlatformItem> WENXING_PLATFORM =
+            ITEMS.register("wenxing_platform",
+                    () -> new WenxingPlatformItem(ModBlocks.WENXING_PLATFORM.get(), new Item.Properties()));
+
     /** 原版无蛋的 Boss/精英：末影龙、凋灵、监守者（掠蛋与刷笼改类型可用）。延迟解析实体类型，避免注册顺序依赖 */
     public static final DeferredItem<SpawnEggItem> ENDER_DRAGON_SPAWN_EGG = ITEMS.register(
             "spawn_egg_ender_dragon",

@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.item;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.block.CustomSpawnerBlock;
 import com.wenxing.wenxingtools.block.CustomSpawnerBlockEntity;
+import com.wenxing.wenxingtools.block.WenxingPlatformBlock;
 import com.wenxing.wenxingtools.block.WenxingTorchBlock;
 import com.wenxing.wenxingtools.block.WenxingTorchBlockEntity;
 import com.wenxing.wenxingtools.block.WenxingWallTorchBlock;
@@ -51,6 +52,11 @@ public final class ModBlocks {
 
     public static final DeferredBlock<WenxingWallTorchBlock> WENXING_WALL_TORCH =
             BLOCKS.register("wenxing_wall_torch", () -> new WenxingWallTorchBlock(torchProperties()));
+
+    /** wenxing平台：外观沿用平滑石（属性整体复制原版方块，硬度/音效/工具与平滑石一致） */
+    public static final DeferredBlock<WenxingPlatformBlock> WENXING_PLATFORM =
+            BLOCKS.register("wenxing_platform",
+                    () -> new WenxingPlatformBlock(BlockBehaviour.Properties.ofFullCopy(net.minecraft.world.level.block.Blocks.SMOOTH_STONE)));
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<WenxingTorchBlockEntity>> WENXING_TORCH_BE =
             BLOCK_ENTITIES.register("wenxing_torch",

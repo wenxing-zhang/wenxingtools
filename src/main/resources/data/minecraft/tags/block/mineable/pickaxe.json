@@ -1,5 +1,6 @@
 {
   "values": [
-    "wenxingtools:custom_spawner"
+    "wenxingtools:custom_spawner",
+    "wenxingtools:wenxing_platform"
   ]
 }
