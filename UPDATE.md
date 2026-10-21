@@ -21,7 +21,8 @@
 ### 实现思路
 
 - 两个方块在原版没有战利品表，补 `minecraft:blocks/bedrock` 与 `minecraft:blocks/reinforced_deepslate` 两份战利品表（掉落自身，带 `survives_explosion`）。
-- 同时把镐的「正确工具」判定改为对所有方块成立：原版破坏链里 `canHarvestBlock` 为假时 `playerDestroy` 整段跳过，只补战利品表不会掉出任何东西。
+- **同日修正**：这两个方块构造时调用了 `noLootTable()`，`getLootTable()` 返回 EMPTY，而 `getDrops` 在 EMPTY 时直接返回空列表——只放战利品表文件永远不会被读取。因此另加一条注入，把两者的战利品表路径改回真实文件，让掉落走原版 `dropResources` 链（同时吃资源增幅与多合一聚合）。
+- 镐的「正确工具」判定改为对所有方块成立：该类别本就不要求正确工具（`requiresCorrectToolForDrops` 为 false），此改动不参与基岩掉落判定，仅作口径统一。
 
 ### 边界
 
