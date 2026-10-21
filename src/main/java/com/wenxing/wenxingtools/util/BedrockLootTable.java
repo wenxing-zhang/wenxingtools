@@ -36,7 +36,9 @@ public final class BedrockLootTable {
             Field drops = BlockBehaviour.class.getDeclaredField(DROPS_FIELD);
             drops.setAccessible(true);
             drops.set(Blocks.BEDROCK, BEDROCK_DROPS);
-            WenXingTools.LOGGER.info("[wenxing_pickaxe] bedrock loot table restored -> {}", BEDROCK_DROPS.location());
+            // 读回 getter 的实际返回值：只打印「我 set 了什么」证明不了取值链真的改过来了
+            WenXingTools.LOGGER.info("[wenxing_pickaxe] bedrock loot table restored -> {}",
+                    Blocks.BEDROCK.getLootTable().location());
         } catch (Throwable t) {
             // 字段改名或被封装时降级：基岩回到「无掉落」，不阻塞启动
             WenXingTools.LOGGER.warn("[wenxing_pickaxe] bedrock loot table restore failed: {}", t.toString());
