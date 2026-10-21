@@ -7,6 +7,7 @@ import com.wenxing.wenxingtools.integration.MalumSpiritAmplification;
 import com.wenxing.wenxingtools.item.ModBlocks;
 import com.wenxing.wenxingtools.item.ModCreativeTabs;
 import com.wenxing.wenxingtools.item.ModItems;
+import com.wenxing.wenxingtools.util.BedrockLootTable;
 import com.wenxing.wenxingtools.util.MixinSelfCheck;
 import com.wenxing.wenxingtools.util.WhitelistManager;
 import com.mojang.logging.LogUtils;
@@ -33,6 +34,7 @@ public class WenXingTools {
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(MixinSelfCheck::run);
         event.enqueueWork(WhitelistManager::load);
+        event.enqueueWork(BedrockLootTable::install);
         event.enqueueWork(MalumSpiritAmplification::register);
         event.enqueueWork(GoetySoulEnergyAmplification::register);
         LOGGER.info("[wenxingtools] common setup complete");
