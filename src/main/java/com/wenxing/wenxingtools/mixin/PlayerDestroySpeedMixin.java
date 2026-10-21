@@ -1,7 +1,7 @@
 package com.wenxing.wenxingtools.mixin;
 
 import com.wenxing.wenxingtools.util.MixinMarkers;
-import com.wenxing.wenxingtools.item.ResourceAmplificationPickaxeItem;
+import com.wenxing.wenxingtools.item.WenxingPickaxeItem;
 import com.wenxing.wenxingtools.util.MixinSelfCheck;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,7 +28,7 @@ public abstract class PlayerDestroySpeedMixin implements MixinMarkers.FlyMiningI
             return original;
         }
         Player self = (Player) (Object) this;
-        if (self.getMainHandItem().getItem() instanceof ResourceAmplificationPickaxeItem) {
+        if (self.getMainHandItem().getItem() instanceof WenxingPickaxeItem) {
             return 1.0F;
         }
         return original;

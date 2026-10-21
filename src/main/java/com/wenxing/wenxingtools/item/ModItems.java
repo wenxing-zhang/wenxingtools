@@ -33,11 +33,11 @@ public final class ModItems {
                     builder -> builder.persistent(ResourceLocation.CODEC)
                             .networkSynchronized(ResourceLocation.STREAM_CODEC));
 
-    public static final DeferredItem<ResourceAmplificationPickaxeItem> RESOURCE_AMPLIFICATION_PICKAXE =
-            ITEMS.register("resource_amplification_pickaxe", ResourceAmplificationPickaxeItem::new);
+    public static final DeferredItem<WenxingPickaxeItem> WENXING_PICKAXE =
+            ITEMS.register("wenxing_pickaxe", WenxingPickaxeItem::new);
 
-    public static final DeferredItem<LifeAmplificationChestplateItem> LIFE_AMPLIFICATION_CHESTPLATE =
-            ITEMS.register("life_amplification_chestplate", LifeAmplificationChestplateItem::new);
+    public static final DeferredItem<WenxingChestplateItem> WENXING_CHESTPLATE =
+            ITEMS.register("wenxing_chestplate", WenxingChestplateItem::new);
 
     public static final DeferredItem<CustomSpawnerItem> CUSTOM_SPAWNER =
             ITEMS.register("custom_spawner", () -> new CustomSpawnerItem(ModBlocks.CUSTOM_SPAWNER.get(), new Item.Properties()));

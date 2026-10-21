@@ -41,15 +41,15 @@ public final class ModCreativeTabs {
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> WENXING_TOOLS =
             CREATIVE_MODE_TABS.register("wenxing_tools", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.wenxingtools.wenxing"))
-                    .icon(() -> new ItemStack(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get()))
+                    .icon(() -> new ItemStack(ModItems.WENXING_PICKAXE.get()))
                     .displayItems(ModCreativeTabs::buildDisplayItems)
                     .build());
 
     private static void buildDisplayItems(
             CreativeModeTab.ItemDisplayParameters parameters,
             CreativeModeTab.Output output) {
-        output.accept(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get());
-        output.accept(ModItems.LIFE_AMPLIFICATION_CHESTPLATE.get());
+        output.accept(ModItems.WENXING_PICKAXE.get());
+        output.accept(ModItems.WENXING_CHESTPLATE.get());
         output.accept(ModItems.CUSTOM_SPAWNER.get());
         output.accept(ModItems.WENXING_TORCH.get());
         output.accept(ModItems.WENXING_PLATFORM.get());

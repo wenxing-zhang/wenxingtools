@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.block;
 
 import com.mojang.serialization.MapCodec;
+import com.wenxing.wenxingtools.item.ModItems;
 import com.wenxing.wenxingtools.util.ChunkScope;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -12,7 +13,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -74,10 +74,10 @@ public class WenxingTorchBlock extends TorchBlock implements EntityBlock {
         return cycleScope(stack, state, level, pos, player);
     }
 
-    /** 站立与墙面火把共用：木棍右击循环 3×3 → 9×9 → 15×15 区块 */
+    /** 站立与墙面火把共用：wenxing镐右击循环 3×3 → 9×9 → 15×15 区块 */
     static ItemInteractionResult cycleScope(ItemStack stack, BlockState state, Level level, BlockPos pos,
                                             Player player) {
-        if (!stack.is(Items.STICK)) {
+        if (!stack.is(ModItems.WENXING_PICKAXE.get())) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
         if (level.isClientSide) {

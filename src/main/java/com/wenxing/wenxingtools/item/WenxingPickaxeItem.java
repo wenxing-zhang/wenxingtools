@@ -24,12 +24,11 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-public class ResourceAmplificationPickaxeItem extends PickaxeItem {
+public class WenxingPickaxeItem extends PickaxeItem {
 
     // 硬编码内置等级与攻击力（对齐 1.20.1 产品数值，不走配置）
     /** 镐面板目标攻击力（玩家基础 1 + 修饰 999 = 1000） */
@@ -58,7 +57,7 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
     private static final int BUILTIN_UNBREAKING_LEVEL = 3;
     private static final int BUILTIN_FORTUNE_LEVEL = 3;
 
-    public ResourceAmplificationPickaxeItem() {
+    public WenxingPickaxeItem() {
         super(Tiers.NETHERITE, new Item.Properties()
                 .stacksTo(1)
                 .fireResistant()
@@ -79,12 +78,13 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
                 .build();
     }
 
-    /** 基岩不可挖掘；其余方块（含模组方块）均可收获 */
+    /**
+     * 除空气外全部方块（含基岩、强化深板岩与模组方块）均可收获掉落。
+     * <p>基岩不再例外：它与屏障/命令方块同属「可挖不可破坏」的产品有意口径。
+     * 这一处判定同时驱动挖掘速度、掉落判定与固定挖掘注入，改这里即可三处同步。
+     */
     public static boolean canHarvest(BlockState state) {
-        if (state == null || state.isAir()) {
-            return false;
-        }
-        return !state.is(Blocks.BEDROCK);
+        return state != null && !state.isAir();
     }
 
     public static void applyBuiltinEnchantments(ItemStack stack, Player player) {

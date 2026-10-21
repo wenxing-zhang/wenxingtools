@@ -115,8 +115,8 @@ public abstract class AnvilMenuFinalizerMixin implements MixinMarkers.AnvilResul
         }
         ItemStack result = resultSlots.getItem(0);
         if (!result.isEmpty()
-                && result.getItem() instanceof com.wenxing.wenxingtools.item.LifeAmplificationChestplateItem) {
-            com.wenxing.wenxingtools.item.LifeAmplificationChestplateItem.stripCurseEnchantments(result);
+                && result.getItem() instanceof com.wenxing.wenxingtools.item.WenxingChestplateItem) {
+            com.wenxing.wenxingtools.item.WenxingChestplateItem.stripCurseEnchantments(result);
         }
     }
 

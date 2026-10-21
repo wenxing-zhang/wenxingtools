@@ -2,20 +2,20 @@
   "type": "minecraft:crafting_shaped",
   "category": "equipment",
   "pattern": [
+    "ILI",
     "III",
-    " S ",
-    " S "
+    "III"
   ],
   "key": {
     "I": {
       "tag": "c:ingots/iron"
     },
-    "S": {
+    "L": {
       "tag": "minecraft:logs"
     }
   },
   "result": {
-    "id": "wenxingtools:resource_amplification_pickaxe",
+    "id": "wenxingtools:wenxing_chestplate",
     "count": 1
   }
 }

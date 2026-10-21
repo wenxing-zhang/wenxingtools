@@ -1,7 +1,7 @@
 package com.wenxing.wenxingtools.mixin;
 
 import com.wenxing.wenxingtools.util.MixinMarkers;
-import com.wenxing.wenxingtools.item.ResourceAmplificationPickaxeItem;
+import com.wenxing.wenxingtools.item.WenxingPickaxeItem;
 import com.wenxing.wenxingtools.util.MixinSelfCheck;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
@@ -14,9 +14,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 主手资源增幅镐：除基岩外全部方块固定约 0.25 秒（5 tick）破坏，与硬度、效率附魔无关。
+ * 主手 wenxing镐：除空气外全部方块固定约 0.25 秒（5 tick）破坏，与硬度、效率附魔无关。
  * 注入声明类 BlockBehaviour.BlockStateBase（getDestroyProgress 在父类，不在 BlockState）。
- * 硬度 &lt; 0 的「不可破坏」方块（屏障 / 命令方块等）一并真实破坏——产品裁定有意设计。
+ * 硬度 &lt; 0 的「不可破坏」方块（屏障 / 命令方块 / 基岩）一并真实破坏——产品裁定有意设计。
  */
 @Mixin(BlockBehaviour.BlockStateBase.class)
 public abstract class BlockStateDestroyProgressMixin implements MixinMarkers.FixedMining {
@@ -34,15 +34,15 @@ public abstract class BlockStateDestroyProgressMixin implements MixinMarkers.Fix
         if (!MixinSelfCheck.isFixedMiningEnabled()) {
             return;
         }
-        if (player == null || !(player.getMainHandItem().getItem() instanceof ResourceAmplificationPickaxeItem)) {
+        if (player == null || !(player.getMainHandItem().getItem() instanceof WenxingPickaxeItem)) {
             return;
         }
         if (!((Object) this instanceof BlockState state)) {
             return;
         }
-        if (!ResourceAmplificationPickaxeItem.canHarvest(state)) {
+        if (!WenxingPickaxeItem.canHarvest(state)) {
             return;
         }
-        cir.setReturnValue(1.0F / ResourceAmplificationPickaxeItem.FIXED_MINE_TICKS);
+        cir.setReturnValue(1.0F / WenxingPickaxeItem.FIXED_MINE_TICKS);
     }
 }

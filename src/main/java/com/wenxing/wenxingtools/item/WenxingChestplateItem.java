@@ -39,7 +39,7 @@ import java.util.List;
  * 护甲/韧性高于原版属性上限（30 / 20），运行时会被原版静默钳位；「护甲 1000」的意图由
  * {@link com.wenxing.wenxingtools.event.LifeAmplificationChestplateEvents} 在伤害终值层补足。
  */
-public class LifeAmplificationChestplateItem extends ArmorItem {
+public class WenxingChestplateItem extends ArmorItem {
 
     public static final double BUILTIN_ARMOR_VALUE = 1000.0D;
     public static final double BUILTIN_ARMOR_TOUGHNESS_VALUE = 1000.0D;
@@ -60,7 +60,7 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
     private static final ResourceLocation TOUGHNESS_MODIFIER_ID =
             ResourceLocation.fromNamespaceAndPath(WenXingTools.MODID, "chestplate_armor_toughness");
 
-    public LifeAmplificationChestplateItem() {
+    public WenxingChestplateItem() {
         super(ArmorMaterials.IRON, ArmorItem.Type.CHESTPLATE, new Item.Properties()
                 .stacksTo(1)
                 .fireResistant()

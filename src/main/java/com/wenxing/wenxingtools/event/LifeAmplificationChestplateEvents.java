@@ -1,7 +1,7 @@
 package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
-import com.wenxing.wenxingtools.item.LifeAmplificationChestplateItem;
+import com.wenxing.wenxingtools.item.WenxingChestplateItem;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -35,7 +35,7 @@ public final class LifeAmplificationChestplateEvents {
             return;
         }
         ItemStack chest = entity.getItemBySlot(EquipmentSlot.CHEST);
-        if (!(chest.getItem() instanceof LifeAmplificationChestplateItem)) {
+        if (!(chest.getItem() instanceof WenxingChestplateItem)) {
             return;
         }
         float amount = event.getNewDamage();
