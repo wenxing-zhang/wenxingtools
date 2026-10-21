@@ -3,6 +3,8 @@ package com.wenxing.wenxingtools.util;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 区块档位与平台几何边界：按档位对齐的整数运算（AGENTS §3.7 T1 常驻化）。 */
 class PlatformGeometryTest {
@@ -39,6 +41,23 @@ class PlatformGeometryTest {
         }
         assertEquals(ChunkScope.THREE, ChunkScope.of(0), "未知值（含旧存档缺属性）落到默认档");
         assertEquals(ChunkScope.THREE, ChunkScope.of(7), "未知值落到默认档");
+    }
+
+    /**
+     * BlockState 属性的取值域必须恰好等于真实档位：多一个值就会让「属性接受、blockstate 缺变体、
+     * 行为回退」三处不一致，且全程不报错。
+     */
+    @Test
+    void isKnownAcceptsExactlyTheRealScopes() {
+        int[] known = {3, 9, 15};
+        for (int chunks : known) {
+            assertTrue(ChunkScope.isKnown(chunks), chunks + " 是真实档位");
+        }
+        int[] unknown = {0, 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 45, 100, -3};
+        for (int chunks : unknown) {
+            assertFalse(ChunkScope.isKnown(chunks), chunks + " 不是真实档位，属性域不得接受");
+        }
+        assertEquals(known.length, ChunkScope.values().length, "档位枚举数量与上表必须一致");
     }
 
     @Test

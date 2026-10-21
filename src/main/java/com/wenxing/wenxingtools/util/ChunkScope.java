@@ -5,8 +5,8 @@ package com.wenxing.wenxingtools.util;
  *
  * <p>刻意不实现 {@code StringRepresentable}：本仓库 {@code src/test} 的 classpath 只有 JUnit、
  * 没有 Minecraft，工具层一旦引入 MC 类型，档位与几何的边界就只能靠实机验证（违反 AGENTS §3.7
- * 的可验证性前置）。因此本枚举保持纯 JDK，BlockState 侧用 {@code IntegerProperty}
- * 承载 {@link #chunks()}，切档前再经 {@link #of} 还原。
+ * 的可验证性前置）。因此本枚举保持纯 JDK，BlockState 侧由 {@code ScopeProperty} 用自定义属性
+ * 承载 {@link #chunks()}（取值域恰好这三档），切档前再经 {@link #of} 还原。
  *
  * <p>枚举顺序即切档顺序；首项 {@link #THREE} 同时是属性默认值，也是旧存档缺该属性时的落点。
  */
@@ -51,5 +51,18 @@ public enum ChunkScope {
             }
         }
         return THREE;
+    }
+
+    /**
+     * 该区块数是否对应某个真实档位——与 {@link #of} 不同，这里不做兜底。
+     * BlockState 属性的取值域靠它收紧，判定留在纯 JDK 层以便单元测试覆盖。
+     */
+    public static boolean isKnown(int chunks) {
+        for (ChunkScope scope : values()) {
+            if (scope.chunks == chunks) {
+                return true;
+            }
+        }
+        return false;
     }
 }

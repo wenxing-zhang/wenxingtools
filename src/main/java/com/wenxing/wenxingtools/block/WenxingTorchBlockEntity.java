@@ -54,7 +54,8 @@ public class WenxingTorchBlockEntity extends BlockEntity {
         registeredCenter = center;
         registeredScope = scope;
         SpawnSuppressionRegistry.register(serverLevel, center, scope);
-        setChanged();
+        // 不调 setChanged()：本实体没有需要持久化的字段（档位在 BlockState，随方块存档），
+        // 调它只会让含火把的区块每次加载都被标记为待保存，白增一次写盘。
     }
 
     private ChunkScope currentScope() {

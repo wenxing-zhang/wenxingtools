@@ -17,7 +17,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
@@ -29,13 +29,10 @@ import net.minecraft.world.phys.BlockHitResult;
 public class WenxingPlatformBlock extends Block {
 
     /**
-     * 生成范围档位，存区块数（只写入 3 / 9 / 15 三个可达值），默认 3 即枚举首项，
-     * 旧存档缺该属性时按 3×3 解析。
-     * <p>用整数属性而非枚举属性，是为了让 {@link ChunkScope} 保持纯 JDK（见其类注释）：
-     * {@code IntegerProperty} 只能声明连续区间，故取 [3,15] 覆盖三档，非法中间值由
-     * {@link ChunkScope#of} 统一回退默认档。
+     * 生成范围档位，存区块数（3 / 9 / 15）；默认 3 即枚举首项，旧存档缺该属性时按 3×3 解析。
+     * 取值域由 {@link ScopeProperty} 收紧到恰好三档——见其类注释。
      */
-    public static final IntegerProperty SCOPE = IntegerProperty.create("scope", 3, 15);
+    public static final Property<Integer> SCOPE = ScopeProperty.SCOPE;
 
     public WenxingPlatformBlock(Properties properties) {
         super(properties);
