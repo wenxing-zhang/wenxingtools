@@ -43,17 +43,6 @@ public enum ChunkScope implements StringRepresentable {
         return all[(ordinal() + 1) % all.length];
     }
 
-    public static ChunkScope byName(String name) {
-        if (name != null) {
-            for (ChunkScope scope : values()) {
-                if (scope.name().equalsIgnoreCase(name) || scope.getSerializedName().equals(name)) {
-                    return scope;
-                }
-            }
-        }
-        return THREE;
-    }
-
     @Override
     public String getSerializedName() {
         return name().toLowerCase(Locale.ROOT);

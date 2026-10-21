@@ -25,9 +25,6 @@ public final class PlatformGenerator {
     }
 
     public record Counts(int filled, int fillReplaced, int aboveCleared, int aboveScanned) {
-        public int destroyed() {
-            return fillReplaced + aboveCleared;
-        }
     }
 
     /** 两段游标：顺序为 填充 → 上方清除，段内 x→z→y 递增，与 {@link #run} 完全一致 */
