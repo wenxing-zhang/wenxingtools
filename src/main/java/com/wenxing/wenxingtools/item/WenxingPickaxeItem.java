@@ -19,7 +19,6 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
@@ -167,14 +166,13 @@ public class WenxingPickaxeItem extends PickaxeItem {
 
     @Override
     public boolean isCorrectToolForDrops(ItemStack stack, BlockState state) {
-
-        return !state.is(Blocks.BEDROCK);
+        // 与 getDestroyProgress 的强制进度配套：canHarvestBlock 为 false 时 playerDestroy 不被调用，掉落链整段跳过
+        return true;
     }
 
     @Override
     public boolean isCorrectToolForDrops(BlockState state) {
-
-        return !state.is(Blocks.BEDROCK);
+        return true;
     }
 
     @Override
