@@ -129,7 +129,7 @@ public record KeyPacket(int key) implements CustomPacketPayload {
             }
 
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
-            player.displayClientMessage(characteristicName.copy().withStyle(color), true);
+            player.displayClientMessage(characteristicName.copy().withStyle(color), false);
             ModNetwork.syncAuthorityData(player);
         });
     }

@@ -81,7 +81,7 @@ public class CustomSpawnerBlock extends BaseEntityBlock {
             stack.shrink(1);
         }
         level.playSound(null, pos, SoundEvents.FIRECHARGE_USE, SoundSource.BLOCKS, 0.6F, 1.0F);
-        player.displayClientMessage(Component.translatable("msg.wenxingtools.spawner.type_set"), true);
+        player.displayClientMessage(Component.translatable("msg.wenxingtools.spawner.type_set"), false);
         return ItemInteractionResult.CONSUME;
     }
 

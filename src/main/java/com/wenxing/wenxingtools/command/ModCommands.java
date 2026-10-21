@@ -288,11 +288,11 @@ public class ModCommands {
         if (detail != null) {
             message = message.copy().append(" (").append(detail).append(")");
         }
-        player.displayClientMessage(message.copy().withStyle(color), true);
+        player.displayClientMessage(message.copy().withStyle(color), false);
     }
 
     private static void sendStatusFeedback(ServerPlayer player, String labelKey, Component detail, ChatFormatting color) {
-        player.displayClientMessage(Component.translatable(labelKey).append(": ").append(detail).withStyle(color), true);
+        player.displayClientMessage(Component.translatable(labelKey).append(": ").append(detail).withStyle(color), false);
     }
 
     private static int executeCEnchant(

@@ -207,7 +207,7 @@ public final class ResourceAmplificationHandler {
         if (level <= 0) {
             player.displayClientMessage(
                     Component.translatable("msg.wenxingtools.resource_amp.no_enchant").withStyle(ChatFormatting.RED),
-                    true);
+                    false);
             return false;
         }
         long now = System.currentTimeMillis();
@@ -218,7 +218,7 @@ public final class ResourceAmplificationHandler {
         player.getPersistentData().putLong(RESOURCE_AMPLIFICATION_SWITCH_CD_TAG, now);
         boolean newState = !isResourceAmplificationEnabled(player);
         setResourceAmplificationEnabled(player, newState);
-        player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), true);
+        player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), false);
         return true;
     }
 

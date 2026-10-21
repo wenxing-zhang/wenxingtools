@@ -84,7 +84,7 @@ public final class CharacteristicTickHandler {
         if (revoked) {
             sPlayer.displayClientMessage(
                     Component.translatable("msg.wenxingtools.whitelist.revoked").withStyle(ChatFormatting.RED),
-                    true);
+                    false);
             ModNetwork.syncAuthorityData(sPlayer);
         }
 

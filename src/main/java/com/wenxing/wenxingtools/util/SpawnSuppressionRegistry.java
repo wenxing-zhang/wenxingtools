@@ -9,6 +9,10 @@ import net.minecraft.world.level.Level;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 火把刷怪抑制登记表：按「维度 + 区块」引用计数，范围随 {@link ChunkScope} 半径变化。
+ * 判定只看 x/z（垂直方向不限，世界最低到最高全覆盖）。
+ */
 public final class SpawnSuppressionRegistry {
 
     private static final ConcurrentHashMap<ResourceKey<Level>, DimensionState> DIMENSIONS = new ConcurrentHashMap<>();
@@ -17,10 +21,12 @@ public final class SpawnSuppressionRegistry {
     private SpawnSuppressionRegistry() {
     }
 
-    public static void register(ServerLevel level, ChunkPos center) {
+    /** 必须传入该火把当前档位对应的 scope；注销时也要传同一个，否则区块引用减不干净 */
+    public static void register(ServerLevel level, ChunkPos center, ChunkScope scope) {
         DimensionState state = DIMENSIONS.computeIfAbsent(level.dimension(), key -> new DimensionState());
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dz = -1; dz <= 1; dz++) {
+        int radius = scope.radiusChunks();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
                 state.chunks.merge(ChunkPos.asLong(center.x + dx, center.z + dz), 1, Integer::sum);
             }
         }
@@ -28,21 +34,23 @@ public final class SpawnSuppressionRegistry {
         TORCH_COUNT.incrementAndGet();
     }
 
-    public static void unregister(ServerLevel level, ChunkPos center) {
+    /** 必须传入登记时使用的同一 scope，否则减不干净（切档路径由 {@code WenxingTorchBlockEntity} 的簿记保证） */
+    public static void unregister(ServerLevel level, ChunkPos center, ChunkScope scope) {
         DimensionState state = DIMENSIONS.get(level.dimension());
-        if (state != null) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    state.chunks.compute(ChunkPos.asLong(center.x + dx, center.z + dz),
-                            (key, count) -> count == null || count <= 1 ? null : count - 1);
-                }
-            }
-            state.torches.updateAndGet(current -> current > 0 ? current - 1 : 0);
-            // 全局计数与维度状态配对扣减：若该维度已被 clearDimension 清理（state 为 null），
-            // 残留火把的全局配额已在卸载时扣过，此处不得再扣——否则全局计数可能跌到 0，
-            // 使 isSuppressed 的快速路径对所有维度返回 false，其它维度的火把抑制静默失效。
-            TORCH_COUNT.updateAndGet(current -> current > 0 ? current - 1 : 0);
+        if (state == null) {
+            // 该维度已被 clearDimension 整体扣过全局计数；残留 BE 的注销请求必须忽略，
+            // 否则全局计数被双减到 0，isSuppressed 的快速路径会把所有维度的火把一起静默关掉
+            return;
         }
+        int radius = scope.radiusChunks();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                state.chunks.compute(ChunkPos.asLong(center.x + dx, center.z + dz),
+                        (key, count) -> count == null || count <= 1 ? null : count - 1);
+            }
+        }
+        state.torches.updateAndGet(current -> current > 0 ? current - 1 : 0);
+        TORCH_COUNT.updateAndGet(current -> current > 0 ? current - 1 : 0);
     }
 
     public static boolean isSuppressed(ServerLevel level, double x, double z) {

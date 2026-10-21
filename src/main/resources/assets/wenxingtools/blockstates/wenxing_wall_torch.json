@@ -1,17 +1,47 @@
 {
   "variants": {
-    "facing=east": {
+    "facing=east,scope=3": {
       "model": "wenxingtools:block/wenxing_wall_torch"
     },
-    "facing=north": {
+    "facing=east,scope=9": {
+      "model": "wenxingtools:block/wenxing_wall_torch"
+    },
+    "facing=east,scope=15": {
+      "model": "wenxingtools:block/wenxing_wall_torch"
+    },
+    "facing=north,scope=3": {
       "model": "wenxingtools:block/wenxing_wall_torch",
       "y": 270
     },
-    "facing=south": {
+    "facing=north,scope=9": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 270
+    },
+    "facing=north,scope=15": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 270
+    },
+    "facing=south,scope=3": {
       "model": "wenxingtools:block/wenxing_wall_torch",
       "y": 90
     },
-    "facing=west": {
+    "facing=south,scope=9": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 90
+    },
+    "facing=south,scope=15": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 90
+    },
+    "facing=west,scope=3": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 180
+    },
+    "facing=west,scope=9": {
+      "model": "wenxingtools:block/wenxing_wall_torch",
+      "y": 180
+    },
+    "facing=west,scope=15": {
       "model": "wenxingtools:block/wenxing_wall_torch",
       "y": 180
     }

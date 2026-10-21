@@ -2,10 +2,13 @@ package com.wenxing.wenxingtools.util;
 
 /**
  * 平台生成枚举逻辑：只做坐标遍历与判定，方块读写交给调用方 sink。
- * 无 MC 依赖（接口参数均为 int 坐标）——T1 探针可用假世界断言全部边界（AGENTS §3.7）。
+ * 无 MC 运行时依赖（接口参数均为 int 坐标）——T1 单元测试可用假世界断言全部边界。
  *
- * <p>{@link Cursor} 是可暂停/续跑的三段游标（状态全为 int），供分批执行复用；
+ * <p>{@link Cursor} 是可暂停/续跑的两段游标（状态全为 int），供分批执行复用；
  * {@link #run} 是它的一次性驱动器，两者共用同一条枚举顺序。
+ *
+ * <p>段序：填充平台层（{@code LAYERS} 层）→ 清除平台正上方 {@code ABOVE_LAYERS} 层。
+ * 原先的「外扩 3 格环带」段已取消，破坏范围与平台同宽。
  */
 public final class PlatformGenerator {
 
@@ -18,32 +21,23 @@ public final class PlatformGenerator {
     }
 
     public enum Phase {
-        FILL, RING, ABOVE, DONE
+        FILL, ABOVE, DONE
     }
 
-    public record Counts(int filled, int fillReplaced, int ringCleared, int aboveCleared, int aboveScanned) {
-        public int destroyed() {
-            return fillReplaced + ringCleared + aboveCleared;
-        }
+    public record Counts(int filled, int fillReplaced, int aboveCleared, int aboveScanned) {
     }
 
-    /** 三段游标：顺序为 填充 → 外扩环 → 上方清除，段内 x→z→y 递增，与 {@link #run} 完全一致 */
+    /** 两段游标：顺序为 填充 → 上方清除，段内 x→z→y 递增，与 {@link #run} 完全一致 */
     public static final class Cursor {
-        private final int centerChunkX;
-        private final int centerChunkZ;
         private final int anchorY;
         private final int maxBuildHeight;
+        private final int side;
         private final int minX;
-        private final int maxX;
         private final int minZ;
-        private final int maxZ;
-        private final int clearMinX;
-        private final int clearMinZ;
         private final int topY;
         private final int bottomY;
         private final int aboveHeight;
         private final long fillTotal;
-        private final long ringTotal;
         private final long aboveTotal;
 
         private Phase phase = Phase.FILL;
@@ -52,23 +46,17 @@ public final class PlatformGenerator {
         private int y;
         private int z;
 
-        public Cursor(int centerChunkX, int centerChunkZ, int anchorY, int maxBuildHeight) {
-            this.centerChunkX = centerChunkX;
-            this.centerChunkZ = centerChunkZ;
+        public Cursor(ChunkScope scope, int centerChunkX, int centerChunkZ, int anchorY, int maxBuildHeight) {
             this.anchorY = anchorY;
             this.maxBuildHeight = maxBuildHeight;
-            this.minX = PlatformGeometry.minX(centerChunkX);
-            this.maxX = PlatformGeometry.maxX(centerChunkX);
-            this.minZ = PlatformGeometry.minZ(centerChunkZ);
-            this.maxZ = PlatformGeometry.maxZ(centerChunkZ);
-            this.clearMinX = PlatformGeometry.clearMinX(centerChunkX);
-            this.clearMinZ = PlatformGeometry.clearMinZ(centerChunkZ);
+            this.side = scope.blocks();
+            this.minX = PlatformGeometry.minX(centerChunkX, scope);
+            this.minZ = PlatformGeometry.minZ(centerChunkZ, scope);
             this.topY = PlatformGeometry.topY(anchorY);
             this.bottomY = PlatformGeometry.bottomY(anchorY);
-            this.aboveHeight = Math.max(0, maxBuildHeight - topY - 1);
-            this.fillTotal = (long) PlatformGeometry.SIDE * PlatformGeometry.SIDE * PlatformGeometry.LAYERS;
-            this.ringTotal = (long) PlatformGeometry.CLEAR_SIDE * PlatformGeometry.CLEAR_SIDE * PlatformGeometry.LAYERS;
-            this.aboveTotal = (long) PlatformGeometry.CLEAR_SIDE * PlatformGeometry.CLEAR_SIDE * aboveHeight;
+            this.aboveHeight = PlatformGeometry.aboveHeight(topY, maxBuildHeight);
+            this.fillTotal = (long) side * side * PlatformGeometry.LAYERS;
+            this.aboveTotal = (long) side * side * aboveHeight;
         }
 
         public Phase phase() {
@@ -95,10 +83,13 @@ public final class PlatformGenerator {
             return maxBuildHeight;
         }
 
-        /** 需要处理的格子总数（外扩环里落在平台内的格子会被跳过，不计入） */
+        public int side() {
+            return side;
+        }
+
+        /** 计划处理的格子总数（填充 + 上方清除），即游标推进的总次数 */
         public long plannedCells() {
-            return fillTotal + ringTotal - (long) PlatformGeometry.SIDE * PlatformGeometry.SIDE * PlatformGeometry.LAYERS
-                    + aboveTotal;
+            return fillTotal + aboveTotal;
         }
 
         /** 推进到下一个待处理格子；已无格子时返回 false 并停在 {@link Phase#DONE} */
@@ -115,9 +106,6 @@ public final class PlatformGenerator {
                 }
                 resolve(phase, index);
                 index++;
-                if (phase == Phase.RING && PlatformGeometry.inPlatform(x, z, centerChunkX, centerChunkZ)) {
-                    continue;
-                }
                 return true;
             }
         }
@@ -125,7 +113,6 @@ public final class PlatformGenerator {
         private long totalOf(Phase p) {
             return switch (p) {
                 case FILL -> fillTotal;
-                case RING -> ringTotal;
                 case ABOVE -> aboveTotal;
                 default -> 0L;
             };
@@ -133,8 +120,7 @@ public final class PlatformGenerator {
 
         private static Phase nextPhase(Phase p) {
             return switch (p) {
-                case FILL -> Phase.RING;
-                case RING -> Phase.ABOVE;
+                case FILL -> Phase.ABOVE;
                 default -> Phase.DONE;
             };
         }
@@ -143,20 +129,14 @@ public final class PlatformGenerator {
             if (p == Phase.FILL) {
                 long column = idx / PlatformGeometry.LAYERS;
                 int layer = (int) (idx % PlatformGeometry.LAYERS);
-                x = minX + (int) (column / PlatformGeometry.SIDE);
-                z = minZ + (int) (column % PlatformGeometry.SIDE);
-                y = bottomY + layer;
-            } else if (p == Phase.RING) {
-                long column = idx / PlatformGeometry.LAYERS;
-                int layer = (int) (idx % PlatformGeometry.LAYERS);
-                x = clearMinX + (int) (column / PlatformGeometry.CLEAR_SIDE);
-                z = clearMinZ + (int) (column % PlatformGeometry.CLEAR_SIDE);
+                x = minX + (int) (column / side);
+                z = minZ + (int) (column % side);
                 y = bottomY + layer;
             } else {
                 long column = idx / aboveHeight;
                 int offset = (int) (idx % aboveHeight);
-                x = clearMinX + (int) (column / PlatformGeometry.CLEAR_SIDE);
-                z = clearMinZ + (int) (column % PlatformGeometry.CLEAR_SIDE);
+                x = minX + (int) (column / side);
+                z = minZ + (int) (column % side);
                 y = topY + 1 + offset;
             }
         }
@@ -166,15 +146,15 @@ public final class PlatformGenerator {
     }
 
     /**
-     * 一次性驱动器：填充 48×48×2 平台层；清除 54×54 外扩环的平台层；清除 54×54 上方至建造上限的全部非空气方块。
-     * 只对非空气调用 clear（空气清除是空操作，也不参与掉落结算）。
+     * 一次性驱动器：填充 {@code side×side×LAYERS} 平台层；清除同水平范围正上方
+     * {@code aboveHeight} 层的全部非空气方块。只对非空气调用 clear
+     * （空气清除是空操作，也不参与掉落结算）。
      */
-    public static Counts run(int centerChunkX, int centerChunkZ, int anchorY, int maxBuildHeight,
+    public static Counts run(ChunkScope scope, int centerChunkX, int centerChunkZ, int anchorY, int maxBuildHeight,
                              BlockSetter fill, BlockSetter clear, AirProbe probe) {
-        Cursor cursor = new Cursor(centerChunkX, centerChunkZ, anchorY, maxBuildHeight);
+        Cursor cursor = new Cursor(scope, centerChunkX, centerChunkZ, anchorY, maxBuildHeight);
         int filled = 0;
         int fillReplaced = 0;
-        int ringCleared = 0;
         int aboveCleared = 0;
         int aboveScanned = 0;
 
@@ -190,12 +170,6 @@ public final class PlatformGenerator {
                     fill.set(x, y, z);
                     filled++;
                 }
-                case RING -> {
-                    if (!probe.isAir(x, y, z)) {
-                        clear.set(x, y, z);
-                        ringCleared++;
-                    }
-                }
                 case ABOVE -> {
                     aboveScanned++;
                     if (!probe.isAir(x, y, z)) {
@@ -207,7 +181,7 @@ public final class PlatformGenerator {
                 }
             }
         }
-        return new Counts(filled, fillReplaced, ringCleared, aboveCleared, aboveScanned);
+        return new Counts(filled, fillReplaced, aboveCleared, aboveScanned);
     }
 
     /** 玩家脚部所在方块层落在平台的两层实心层之内 → 需要上抬 */

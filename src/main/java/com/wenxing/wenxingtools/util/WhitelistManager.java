@@ -116,7 +116,7 @@ public class WhitelistManager {
                     if (!player.getUUID().equals(uuid)) {
                         continue;
                     }
-                    player.displayClientMessage(Component.translatable("msg.wenxingtools.whitelist.revoked").withStyle(ChatFormatting.RED), true);
+                    player.displayClientMessage(Component.translatable("msg.wenxingtools.whitelist.revoked").withStyle(ChatFormatting.RED), false);
                     IAuthorityData data = AuthorityAttachments.getData(player);
                     if (data != null) {
                         data.setInvincibleCharacteristic(false);
