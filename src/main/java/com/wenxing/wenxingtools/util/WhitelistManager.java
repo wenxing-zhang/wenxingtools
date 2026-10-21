@@ -103,7 +103,7 @@ public class WhitelistManager {
             if (server != null) {
                 for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                     if (player.getUUID().equals(uuid)) {
-                        player.displayClientMessage(Component.literal("权限被撤销：所有特性已关闭。").withStyle(ChatFormatting.RED), true);
+                        player.displayClientMessage(Component.literal("权限被撤销：所有特性已关闭。").withStyle(ChatFormatting.RED), false);
                         player.getCapability(AuthorityDataProvider.AUTHORITY_DATA).ifPresent(data -> {
                             data.setInvincibleCharacteristic(false);
                             data.setResourceCharacteristic(false);

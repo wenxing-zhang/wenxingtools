@@ -1,54 +1,31 @@
 package com.wenxing.wenxingtools.util;
 
 /**
- * 平台几何：区块对齐 3×3（48×48）与四向外扩 3 格（54×54）的纯整数边界运算。
- * 无 MC 依赖——T1 探针直接编译本文件即可断言。
+ * 平台几何：按区块档位求水平边界。破坏范围与平台自身水平范围同宽，不再有外扩环。
+ *
+ * <p>无 MC 依赖（除 {@link ChunkScope} 的接口签名）——T1 探针直接编译本文件即可断言。
  */
 public final class PlatformGeometry {
-    public static final int CHUNKS_PER_SIDE = 3;
-    public static final int SIDE = CHUNKS_PER_SIDE * 16;
-    public static final int MARGIN = 3;
-    public static final int CLEAR_SIDE = SIDE + MARGIN * 2;
     public static final int LAYERS = 2;
+    public static final int ABOVE_LAYERS = 16;
 
     private PlatformGeometry() {
     }
 
-    public static int minX(int centerChunkX) {
-        return (centerChunkX - 1) << 4;
+    public static int minX(int centerChunkX, ChunkScope scope) {
+        return (centerChunkX - scope.radiusChunks()) << 4;
     }
 
-    public static int maxX(int centerChunkX) {
-        return minX(centerChunkX) + SIDE - 1;
+    public static int maxX(int centerChunkX, ChunkScope scope) {
+        return minX(centerChunkX, scope) + scope.blocks() - 1;
     }
 
-    public static int minZ(int centerChunkZ) {
-        return (centerChunkZ - 1) << 4;
+    public static int minZ(int centerChunkZ, ChunkScope scope) {
+        return (centerChunkZ - scope.radiusChunks()) << 4;
     }
 
-    public static int maxZ(int centerChunkZ) {
-        return minZ(centerChunkZ) + SIDE - 1;
-    }
-
-    public static int clearMinX(int centerChunkX) {
-        return minX(centerChunkX) - MARGIN;
-    }
-
-    public static int clearMaxX(int centerChunkX) {
-        return maxX(centerChunkX) + MARGIN;
-    }
-
-    public static int clearMinZ(int centerChunkZ) {
-        return minZ(centerChunkZ) - MARGIN;
-    }
-
-    public static int clearMaxZ(int centerChunkZ) {
-        return maxZ(centerChunkZ) + MARGIN;
-    }
-
-    public static boolean inPlatform(int x, int z, int centerChunkX, int centerChunkZ) {
-        return x >= minX(centerChunkX) && x <= maxX(centerChunkX)
-                && z >= minZ(centerChunkZ) && z <= maxZ(centerChunkZ);
+    public static int maxZ(int centerChunkZ, ChunkScope scope) {
+        return minZ(centerChunkZ, scope) + scope.blocks() - 1;
     }
 
     public static int topY(int anchorY) {
@@ -59,11 +36,8 @@ public final class PlatformGeometry {
         return anchorY - 1;
     }
 
-    public static int platformVolume() {
-        return SIDE * SIDE * LAYERS;
-    }
-
-    public static int ringVolume() {
-        return (CLEAR_SIDE * CLEAR_SIDE - SIDE * SIDE) * LAYERS;
+    /** 上方清除层数：满 {@link #ABOVE_LAYERS} 层，触到建造上限时截断 */
+    public static int aboveHeight(int topY, int maxBuildHeight) {
+        return Math.max(0, Math.min(ABOVE_LAYERS, maxBuildHeight - topY - 1));
     }
 }

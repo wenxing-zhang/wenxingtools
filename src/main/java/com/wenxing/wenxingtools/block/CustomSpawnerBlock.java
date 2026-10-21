@@ -79,7 +79,7 @@ public class CustomSpawnerBlock extends BaseEntityBlock {
                 held.shrink(1);
             }
             level.playSound(null, pos, SoundEvents.FIRECHARGE_USE, SoundSource.BLOCKS, 0.6F, 1.0F);
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("刷怪类型已切换"), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal("刷怪类型已切换"), false);
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;

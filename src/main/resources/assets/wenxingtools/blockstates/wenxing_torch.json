@@ -1,6 +1,12 @@
 {
   "variants": {
-    "": {
+    "scope=three": {
+      "model": "wenxingtools:block/wenxing_torch"
+    },
+    "scope=nine": {
+      "model": "wenxingtools:block/wenxing_torch"
+    },
+    "scope=fifteen": {
       "model": "wenxingtools:block/wenxing_torch"
     }
   }

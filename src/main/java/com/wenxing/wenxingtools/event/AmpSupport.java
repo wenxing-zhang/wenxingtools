@@ -249,7 +249,7 @@ public final class AmpSupport {
                 player.displayClientMessage(
                         Component.literal("主手物品没有资源增幅附魔")
                                 .withStyle(ChatFormatting.RED),
-                        true);
+                        false);
                 return false;
             }
             long now = System.currentTimeMillis();
@@ -260,7 +260,7 @@ public final class AmpSupport {
             player.getPersistentData().putLong(RESOURCE_AMPLIFICATION_SWITCH_CD_TAG, now);
             boolean newState = !isResourceAmplificationEnabled(player);
             setResourceAmplificationEnabled(player, newState);
-            player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), true);
+            player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), false);
             return true;
         }
         return false;

@@ -73,7 +73,7 @@ public class KeyPacket {
 
             IAuthorityData data = AuthorityDataProvider.getData(player);
             if (data == null) {
-                player.displayClientMessage(Component.literal("特性数据不可用，请重新登录后再试。").withStyle(ChatFormatting.RED), true);
+                player.displayClientMessage(Component.literal("特性数据不可用，请重新登录后再试。").withStyle(ChatFormatting.RED), false);
                 return;
             }
 
@@ -121,7 +121,7 @@ public class KeyPacket {
             }
 
             ChatFormatting color = newState ? ChatFormatting.GREEN : ChatFormatting.RED;
-            player.displayClientMessage(Component.literal(characteristicName).withStyle(color), true);
+            player.displayClientMessage(Component.literal(characteristicName).withStyle(color), false);
             PacketHandler.syncAuthorityData(player);
         });
         ctx.get().setPacketHandled(true);

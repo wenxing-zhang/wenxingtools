@@ -310,11 +310,11 @@ public class ModCommands {
         if (detail != null && !detail.isEmpty()) {
             message += "（" + detail + "）";
         }
-        player.displayClientMessage(Component.literal(message).withStyle(color), true);
+        player.displayClientMessage(Component.literal(message).withStyle(color), false);
     }
 
     private static void sendStatusFeedback(ServerPlayer player, String label, String detail, ChatFormatting color) {
-        player.displayClientMessage(Component.literal(label + "：" + detail).withStyle(color), true);
+        player.displayClientMessage(Component.literal(label + "：" + detail).withStyle(color), false);
     }
 
     private static int executeCEnchant(CommandContext<CommandSourceStack> ctx, Collection<? extends Entity> targets, ResourceLocation enchantmentId, int level) {
