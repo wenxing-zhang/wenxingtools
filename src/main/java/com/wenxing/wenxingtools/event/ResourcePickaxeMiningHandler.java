@@ -4,7 +4,6 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -21,7 +20,7 @@ public final class ResourcePickaxeMiningHandler {
     @SubscribeEvent
     public static void onBreakSpeed(PlayerEvent.BreakSpeed event) {
         Player player = event.getEntity();
-        if (player == null || !player.getMainHandItem().is(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get())) {
+        if (player == null || !player.getMainHandItem().is(ModItems.WENXING_PICKAXE.get())) {
             return;
         }
         BlockState state = event.getState();
@@ -29,9 +28,6 @@ public final class ResourcePickaxeMiningHandler {
             return;
         }
 
-        if (state.is(Blocks.BEDROCK)) {
-            return;
-        }
         BlockPos pos = event.getPosition().orElse(null);
         float hardness = pos != null
                 ? state.getDestroySpeed(player.level(), pos)

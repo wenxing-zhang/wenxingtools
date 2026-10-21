@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class ResourceAmplificationPickaxeItem extends PickaxeItem {
+public class WenxingPickaxeItem extends PickaxeItem {
 
 
     private static final int BUILTIN_RESOURCE_AMPLIFICATION_LEVEL = 2;
@@ -39,7 +39,7 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
     private static final UUID BASE_ATTACK_DAMAGE_UUID = UUID.fromString("CB3F55D3-645C-4F38-A497-9C13A33DB5CF");
     private static final UUID BASE_ATTACK_SPEED_UUID = UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3");
 
-    public ResourceAmplificationPickaxeItem() {
+    public WenxingPickaxeItem() {
         super(Tiers.NETHERITE, 0, 0.0F,
                 new Item.Properties()
                         .stacksTo(1)
@@ -158,11 +158,6 @@ public class ResourceAmplificationPickaxeItem extends PickaxeItem {
 
     @Override
     public float getDestroySpeed(ItemStack stack, BlockState state) {
-
-
-        if (state.is(Blocks.BEDROCK)) {
-            return super.getDestroySpeed(stack, state);
-        }
         float hardness = state.getDestroySpeed(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
         if (hardness <= 0.0F) {
             return super.getDestroySpeed(stack, state);

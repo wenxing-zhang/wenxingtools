@@ -13,11 +13,11 @@ public class ModItems {
     public static final DeferredRegister<Item> ITEMS =
             DeferredRegister.create(ForgeRegistries.ITEMS, WenXingTools.MODID);
 
-    public static final RegistryObject<Item> RESOURCE_AMPLIFICATION_PICKAXE =
-            ITEMS.register("resource_amplification_pickaxe", ResourceAmplificationPickaxeItem::new);
+    public static final RegistryObject<Item> WENXING_PICKAXE =
+            ITEMS.register("wenxing_pickaxe", WenxingPickaxeItem::new);
 
-    public static final RegistryObject<Item> LIFE_AMPLIFICATION_CHESTPLATE =
-            ITEMS.register("life_amplification_chestplate", LifeAmplificationChestplateItem::new);
+    public static final RegistryObject<Item> WENXING_CHESTPLATE =
+            ITEMS.register("wenxing_chestplate", WenxingChestplateItem::new);
 
     public static final RegistryObject<Item> CUSTOM_SPAWNER =
             ITEMS.register("custom_spawner",

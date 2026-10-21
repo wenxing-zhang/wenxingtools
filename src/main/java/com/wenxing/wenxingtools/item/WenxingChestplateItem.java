@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class LifeAmplificationChestplateItem extends ArmorItem {
+public class WenxingChestplateItem extends ArmorItem {
 
     public static final double BUILTIN_ARMOR_VALUE = 1000.0D;
     public static final double BUILTIN_ARMOR_TOUGHNESS_VALUE = 1000.0D;
@@ -45,7 +45,7 @@ public class LifeAmplificationChestplateItem extends ArmorItem {
     private static final UUID CHESTPLATE_ARMOR_UUID = UUID.fromString("9F3D476D-C118-4544-8365-64846904B48E");
     private static final String BUILTIN_FLAG = "WX_BuiltinEnch";
 
-    public LifeAmplificationChestplateItem() {
+    public WenxingChestplateItem() {
         super(ArmorMaterials.IRON, ArmorItem.Type.CHESTPLATE,
                 new Item.Properties()
                         .stacksTo(1)

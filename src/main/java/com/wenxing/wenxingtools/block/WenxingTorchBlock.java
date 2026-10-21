@@ -9,7 +9,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Items;
+import com.wenxing.wenxingtools.item.ModItems;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -50,7 +50,7 @@ public class WenxingTorchBlock extends TorchBlock implements EntityBlock {
 
     /** 站立与墙面火把共用：木棍右击循环 3×3 → 9×9 → 15×15 区块 */
     static InteractionResult cycleScope(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand) {
-        if (!player.getItemInHand(hand).is(Items.STICK)) {
+        if (!player.getItemInHand(hand).is(ModItems.WENXING_PICKAXE.get())) {
             return InteractionResult.PASS;
         }
         if (level.isClientSide) {

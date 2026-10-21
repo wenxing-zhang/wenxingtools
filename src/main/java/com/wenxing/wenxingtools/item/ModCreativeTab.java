@@ -21,10 +21,10 @@ public final class ModCreativeTab {
     public static final RegistryObject<CreativeModeTab> WENXING = TABS.register("wenxing",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.wenxingtools"))
-                    .icon(() -> new ItemStack(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get()))
+                    .icon(() -> new ItemStack(ModItems.WENXING_PICKAXE.get()))
                     .displayItems((params, output) -> {
-                        output.accept(ModItems.RESOURCE_AMPLIFICATION_PICKAXE.get().getDefaultInstance());
-                        output.accept(ModItems.LIFE_AMPLIFICATION_CHESTPLATE.get().getDefaultInstance());
+                        output.accept(ModItems.WENXING_PICKAXE.get().getDefaultInstance());
+                        output.accept(ModItems.WENXING_CHESTPLATE.get().getDefaultInstance());
                         output.accept(ModItems.CUSTOM_SPAWNER.get().getDefaultInstance());
                         output.accept(ModItems.WENXING_TORCH.get().getDefaultInstance());
                         output.accept(ModItems.WENXING_PLATFORM.get().getDefaultInstance());
