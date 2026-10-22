@@ -1,11 +1,16 @@
 package com.wenxing.wenxingtools.item;
 
+import com.wenxing.wenxingtools.block.WenxingPlatformBlock;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.util.OreRectangleGenerator;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.EquipmentSlotGroup;
@@ -20,10 +25,12 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.Tiers;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Unbreakable;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
@@ -147,11 +154,41 @@ public class WenxingPickaxeItem extends PickaxeItem {
     }
 
     @Override
-    public boolean mineBlock(ItemStack stack, Level level, BlockState state, net.minecraft.core.BlockPos pos, LivingEntity miner) {
+    public boolean mineBlock(ItemStack stack, Level level, BlockState state, BlockPos pos, LivingEntity miner) {
         if (!level.isClientSide && state.getDestroySpeed(level, pos) != 0.0F) {
             stack.hurtAndBreak(0, miner, EquipmentSlot.MAINHAND);
         }
         return true;
+    }
+
+    /**
+     * 方块交互统一入口。
+     * <p>潜行时原版跳过方块侧的 {@code useItemOn}（{@code ServerPlayerGameMode#useItemOn} 的
+     * {@code useBlock.isDefault() && !sneakBlocked} 分支），物品侧仍会收到 {@code useOn}——
+     * 所以「潜行右击平台生成」必须在这里接住，否则平台方块里的潜行分支是死代码。
+     */
+    @Override
+    public InteractionResult useOn(UseOnContext context) {
+        Level level = context.getLevel();
+        BlockPos clicked = context.getClickedPos();
+        Player player = context.getPlayer();
+        BlockState state = level.getBlockState(clicked);
+        if (state.is(ModBlocks.WENXING_PLATFORM.get()) && player != null && player.isShiftKeyDown()) {
+            // 客户端只做预测：返回 SUCCESS 让本地挥手/音效正常，世界改写一律由服务端执行
+            if (!(level instanceof ServerLevel serverLevel)) {
+                return InteractionResult.SUCCESS;
+            }
+            WenxingPlatformBlock.tryBuild(serverLevel, clicked, state, player);
+            return InteractionResult.SUCCESS;
+        }
+        if (!state.is(Blocks.OAK_LOG)) {
+            return InteractionResult.PASS;
+        }
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return InteractionResult.SUCCESS;
+        }
+        OreRectangleGenerator.generate(serverLevel, clicked, player);
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -172,6 +209,7 @@ public class WenxingPickaxeItem extends PickaxeItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, net.minecraft.world.item.TooltipFlag flag) {
         super.appendHoverText(stack, context, lines, flag);
+        lines.add(Component.translatable("item.wenxingtools.wenxing_pickaxe.desc").withStyle(ChatFormatting.LIGHT_PURPLE));
         lines.add(Component.translatable("tooltip.wenxingtools.resource_pickaxe.toggle").withStyle(ChatFormatting.GRAY));
         lines.add(Component.translatable("tooltip.wenxingtools.resource_pickaxe.mine_all").withStyle(ChatFormatting.DARK_GRAY));
     }
