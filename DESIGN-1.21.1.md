@@ -149,9 +149,11 @@
 
 **效果**：开关开启后双击空格（跳跃键）起飞——前后方向键水平移动，跳跃键上升、潜行键下降；再双击收起，起飞后贴地持续 5 刻自动收起。关闭开关（按键 / 命令 / 失权自动关）立刻收起。
 
-**实现**：不再依赖「允许飞行」能力位——那条会被接管玩家能力数据的模组在能力同步时整体覆写。做法是**复用原版创造飞行的代码路径**：飞行态存自有权威数据字段（`freedomFlying`），用 Mixin 把 `Player.travel` / `Player.getFlyingSpeed` 里读 `Abilities.flying` 的判定改写到自有状态上（只改读取，不写 `Abilities` 字段本身），于是水平速度、垂直衰减、免坠落全部沿用原版实现；`LocalPlayer.aiStep` 注入一段自有的垂直输入（跳跃上升 / 潜行下降），补上原版那段被 `abilities.flying` 挡掉的输入。因为不写 `mayfly`，拿不到原版「悬空太久」检测的豁免名额，另用 Mixin 在 `ServerGamePacketListenerImpl.tick` 每刻清零该玩家的两个 floating 计数。登出、死亡克隆、重生、切维都会收起飞行（飞行态不跨死亡继承）。
+**实现**：不再依赖「允许飞行」能力位——那条会被接管玩家能力数据的模组在能力同步时整体覆写。做法是**复用原版创造飞行的代码路径**：飞行态存自有权威数据字段（`freedomFlying`），用 Mixin 把原版「是否飞行中」的**全部消费点**改写到自有状态上（只改读取，不写 `Abilities` 字段本身）——该判定是单一不变量（`FreedomFlightPolicy.effectiveFlying`：原值为真，或本模组自由飞行中），覆盖：位移主干（垂直衰减与免坠落，`Player.travel`）、水平飞行速度（`getFlyingSpeed`）、潜行时的防掉边水平收窄（`maybeBackOffFromEdge`）、潜行姿势（`updatePlayerPose`）、入水是否切游泳（`updateSwimming` / `isSwimming`）、液体阻力与水流推动（`isAffectedByFluids` / `isPushedByFluid`）、方块减速系数（`getBlockSpeedFactor`）、方块黏滞（`makeStuckInBlock`）、移动音效与游戏事件（`getMovementEmission`）。漏改任何一处，飞行中都会出现行为错位（水平移动被防掉边或减速系数卡住、姿势切蹲导致碰撞箱变矮、入水被切成游泳、被水流推动、低空被方块减速、寻声守卫与幽匿感测器被惊动）。`LocalPlayer.aiStep` 另注入三段：垂直输入（跳跃 +1 / 潜行 -1 **相加**，同按互相抵消为悬停，补上原版被 `abilities.flying` 挡掉的那段）、**crouching 收尾置假**（原版靠 crouching 恒假让潜行减速、潜行姿势与第三方 `isCrouching` 判定自然失效；自由飞行不写该能力字段，故在 `aiStep` 收尾统一置假，不触碰任何读取点）、以及**慢速系数抑制**（`Input.tick` 调用处按纯判定抑制，作为 crouching 修正未生效时的冗余保险）。因为不写 `mayfly`，拿不到原版「悬空太久」检测的豁免名额，另用 Mixin 在 `ServerGamePacketListenerImpl.tick` 每刻清零该玩家的两个 floating 计数。登出、死亡克隆、重生、切维都会收起飞行（飞行态不跨死亡继承）。
 
 **边界**：贴地掠过（不足 5 刻）不收起；贴地时按住跳跃键可原地起飞。三个 Mixin 任一注入打空都会关闭本特性（启动自检）。`ServerFreedomFlightGuardMixin` 置于 common 段而非 server 段——单人游戏的逻辑服务端跑在客户端进程内，Mixin side 是 CLIENT，放 server 段会导致单人下不被豁免。开关入口一个网络包，协议版本由 3 升到 4（新旧版本客户端与服务端不互通）。
+
+**与 1.20.1 的差异**（同口径迁移，不逐字照搬）：① 1.21.1 的灵魂疾行已改为数据驱动（`Enchantments.SOUL_SPEED` 的属性修饰条件只判方块标签），`Player` 内不再有读 `abilities.flying` 的 `onSoulSpeedBlock` / `shouldRemoveSoulSpeed`，故没有对应注入点；② 客户端另有 `isSuppressingSlidingDownLadder`、`canSpawnSprintParticle`、`getFieldOfViewModifier` 三处读取，只影响贴梯滑动与视觉，与 1.20.1 同口径**不接管**；③ `crouching` 已与创造飞行对齐（`aiStep` 收尾统一置假，不在赋值行改读取点——`LocalPlayer.aiStep` 内读 `abilities.flying` 共 10 处，按序号定位脆弱且会误伤原版开关逻辑）；④ 服务端 11 处注入由 `runServer` 冒烟覆盖，客户端 3 处注入（垂直输入、crouching 收尾、慢速系数）只有字节码存在性证据（服务端进程不加载 `LocalPlayer`），需要真实客户端验证。
 
 ### 4.3 杀戮光环
 
@@ -464,7 +466,7 @@
 | 净化伤害改写 / 效果拦截 | 持续窗语义 | 正常 |
 | 掠蛋武器覆盖 | 动态放行模组武器 | 正常 |
 | 掉落合并保护 | 多合一拒邻居合并 | 正常 |
-| 自由飞行 | 复用原版飞行代码路径 + 悬空检测豁免 | 三 Mixin 合为一组开关：`Player.travel` / `getFlyingSpeed` 重定向 `Abilities.flying` 读取、`LocalPlayer.aiStep` 注入垂直输入、`ServerGamePacketListenerImpl.tick` 清零 floating 计数；任一打空则关闭特性。客户端 Mixin 只在客户端侧核对标记 |
+| 自由飞行 | 复用原版飞行代码路径 + 悬空检测豁免 | 三 Mixin 合为一组开关：`Player` 侧 11 处 `Abilities.flying` 读取重定向（travel / getFlyingSpeed / maybeBackOffFromEdge / updatePlayerPose / updateSwimming / isSwimming / isAffectedByFluids / isPushedByFluid / getBlockSpeedFactor / makeStuckInBlock / getMovementEmission）、`LocalPlayer.aiStep` 注入垂直输入 + 收尾置假 `crouching` + 重定向 `Input.tick` 抑制慢速系数、`ServerGamePacketListenerImpl.tick` 清零 floating 计数；任一打空则关闭特性。客户端 Mixin 只在客户端侧核对标记 |
 
 **启动自检**：以「落地标记」判定注入是否**真的落到目标类**——每个 Mixin 实现一个空标记接口，Mixin 成功应用时该接口被加到目标类上，自检据此核对。这比「反射查目标成员是否存在」强一层：成员还在、调用点却没了时，旧口径检测不到（铁砧曾有三条这样的死重定向）。未落地 → WARN + **关闭对应特性**，避免静默退回原版却仍显示可用。
 

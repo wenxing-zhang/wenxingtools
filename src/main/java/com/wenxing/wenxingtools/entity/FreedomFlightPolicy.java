@@ -28,12 +28,33 @@ public final class FreedomFlightPolicy {
         return countsAsGrounded(flying, touchingGround, rising) && groundTicks >= GROUND_STOP_TICKS;
     }
 
-    /** 垂直输入：跳跃优先于潜行（与原版一致）。 */
+    /**
+     * 垂直输入：跳跃与潜行相加（与原版创造飞行一致——两者同时按下互相抵消为悬停）。
+     * 不能写成「跳跃优先」：那会让「按住潜行键下降时顺手按空格」变成持续上升。
+     */
     public static int verticalInput(boolean jumping, boolean shiftDown) {
-        if (jumping) {
-            return 1;
+        int input = 0;
+        if (shiftDown) {
+            --input;
         }
-        return shiftDown ? -1 : 0;
+        if (jumping) {
+            ++input;
+        }
+        return input;
+    }
+
+    /** 是否按原版飞行路径处理：原版字段为真，或本模组自由飞行中。 */
+    public static boolean effectiveFlying(boolean abilitiesFlying, boolean freedomFlying) {
+        return abilitiesFlying || freedomFlying;
+    }
+
+    /**
+     * 本刻输入是否要套用潜行减速系数。原版创造飞行时 crouching 恒为 false，
+     * 慢速判定因此不成立；自由飞行不写该能力字段，必须在这里显式抑制，
+     * 否则按住潜行键下降时水平输入会被乘成 30%。
+     */
+    public static boolean slowdownApplies(boolean movingSlowly, boolean freedomFlying) {
+        return movingSlowly && !freedomFlying;
     }
 
     /** 单刻垂直加速度增量。 */
