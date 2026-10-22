@@ -90,8 +90,12 @@ public class WenxingPlatformBlock extends Block {
         ChunkScope scope = ChunkScope.of(state.getValue(SCOPE));
         ChunkPos center = player.chunkPosition();
         int anchorY = pos.getY();
-        if (!PlatformBuildHandler.submit(level, center, anchorY, scope, player.getUUID())) {
-            player.displayClientMessage(Component.literal("wenxing平台：该区域正在生成中"), false);
+        PlatformBuildHandler.SubmitResult result =
+                PlatformBuildHandler.submit(level, center, anchorY, scope, player.getUUID());
+        if (result != PlatformBuildHandler.SubmitResult.ACCEPTED) {
+            player.displayClientMessage(Component.literal(result == PlatformBuildHandler.SubmitResult.TOO_MANY
+                    ? "wenxing平台：生成任务过多，请等待当前任务完成"
+                    : "wenxing平台：该区域正在生成中"), false);
             return false;
         }
 

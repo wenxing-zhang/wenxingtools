@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 矿石矩形几何契约：99 格偏移唯一、层序连续、每层恰好覆盖一个 3×3 面（AGENTS §3.7 T1 常驻化）。 */
@@ -62,5 +64,34 @@ class OreRectangleGeometryTest {
         assertEquals(0, OreRectangleGeometry.oreIndexOf(0));
         assertEquals(OreRectangleGeometry.ORE_KINDS - 1,
                 OreRectangleGeometry.oreIndexOf(OreRectangleGeometry.cellCount() - 1));
+    }
+
+    @Test
+    void buildRangeIsHalfOpenOnTop() {
+        int minY = -64;
+        int maxY = 320;
+        assertFalse(OreRectangleGeometry.inBuildRange(minY - 1, minY, maxY), "低于最低建造高度必须裁剪");
+        assertTrue(OreRectangleGeometry.inBuildRange(minY, minY, maxY), "最低建造高度本身可写");
+        assertTrue(OreRectangleGeometry.inBuildRange(maxY - 1, minY, maxY), "建造上限下一格可写");
+        assertFalse(OreRectangleGeometry.inBuildRange(maxY, minY, maxY), "建造上限本身不可写（开区间上界）");
+        assertFalse(OreRectangleGeometry.inBuildRange(0, minY, minY), "空区间一律裁剪");
+    }
+
+    @Test
+    void chunkOfHandlesNegativeCoordinates() {
+        assertEquals(-1, OreRectangleGeometry.chunkOf(-1), "-1 格属于区块 -1，不是 0");
+        assertEquals(-1, OreRectangleGeometry.chunkOf(-16), "-16 是区块 -1 的首格");
+        assertEquals(-2, OreRectangleGeometry.chunkOf(-17));
+        assertEquals(0, OreRectangleGeometry.chunkOf(0));
+        assertEquals(0, OreRectangleGeometry.chunkOf(15));
+        assertEquals(1, OreRectangleGeometry.chunkOf(16));
+    }
+
+    @Test
+    void offsetsRejectOutOfRangeIndex() {
+        assertThrows(IllegalArgumentException.class, () -> OreRectangleGeometry.xOffset(-1));
+        assertThrows(IllegalArgumentException.class, () -> OreRectangleGeometry.yOffset(OreRectangleGeometry.cellCount()));
+        assertThrows(IllegalArgumentException.class, () -> OreRectangleGeometry.zOffset(OreRectangleGeometry.cellCount()));
+        assertThrows(IllegalArgumentException.class, () -> OreRectangleGeometry.oreIndexOf(-1));
     }
 }

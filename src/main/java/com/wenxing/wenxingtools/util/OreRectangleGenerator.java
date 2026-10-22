@@ -12,7 +12,11 @@ import org.jetbrains.annotations.Nullable;
  * 矿石矩形生成：按 {@link OreRectangleGeometry} 的 99 格偏移逐格覆盖为矿石，单 tick 完成。
  *
  * <p>被替换方块不结算战利品（语义是「生成矿石」，产出即收益），因此刻意不走 {@code dropResources}；
- * 容器方块（箱子/熔炉/漏斗/潜影盒等）的内容物仍由原版 {@code onRemove} 弹出，本类不干预——与 wenxing 平台同口径。
+ * 容器方块（箱子/熔炉/漏斗/潜影盒等）的内容物仍由原版 {@code onRemove} 弹出，本类不干预。
+ *
+ * <p>写入只发 {@code UPDATE_CLIENTS}、不做邻居更新——与 wenxing 平台同口径。代价是范围内
+ * 重力方块与依赖支撑的方块不会立即下落/断裂，要等下一次邻居更新；这是刻意取舍：
+ * 邻居更新会让 99 格覆盖惊动范围内红石元件与流体，连锁代价远大于悬空方块的观感。
  */
 public final class OreRectangleGenerator {
     private static final Block[] ORE_POOL = {
@@ -42,6 +46,7 @@ public final class OreRectangleGenerator {
 
     /** @return 实际写入的格数（贴世界上下边界时会被裁剪） */
     public static int generate(ServerLevel level, BlockPos anchor, @Nullable Player player) {
+        warmUp(level, anchor);
         int minY = level.getMinBuildHeight();
         int maxY = level.getMaxBuildHeight();
         int placed = 0;
@@ -50,11 +55,10 @@ public final class OreRectangleGenerator {
                     OreRectangleGeometry.xOffset(i),
                     OreRectangleGeometry.yOffset(i),
                     OreRectangleGeometry.zOffset(i));
-            if (pos.getY() < minY || pos.getY() >= maxY) {
+            if (!OreRectangleGeometry.inBuildRange(pos.getY(), minY, maxY)) {
                 continue;
             }
             Block block = ORE_POOL[OreRectangleGeometry.oreIndexOf(i)];
-            // UPDATE_CLIENTS：只同步客户端、不做邻居更新，避免范围内红石元件与依赖支撑的方块被惊动（与平台同口径）
             if (level.setBlock(pos, block.defaultBlockState(), Block.UPDATE_CLIENTS)) {
                 placed++;
             }
@@ -64,5 +68,22 @@ public final class OreRectangleGenerator {
                     + "，共 " + placed + " 格"), false);
         }
         return placed;
+    }
+
+    /**
+     * 把逐格 {@code setBlock} 触发的隐式区块加载收敛成写入前的一次显式加载。
+     * 几何最多跨 2×2 个区块（x 跨 3 格、z 跨 11 格），未生成的区块在这里一次性生成完，
+     * 避免卡顿散落在循环中段、也避免同一区块被反复查询。与平台的区块预热同口径。
+     */
+    private static void warmUp(ServerLevel level, BlockPos anchor) {
+        int minChunkX = OreRectangleGeometry.chunkOf(anchor.getX() - OreRectangleGeometry.SIDE / 2);
+        int maxChunkX = OreRectangleGeometry.chunkOf(anchor.getX() + OreRectangleGeometry.SIDE / 2);
+        int minChunkZ = OreRectangleGeometry.chunkOf(anchor.getZ() - OreRectangleGeometry.LAYER_HALF);
+        int maxChunkZ = OreRectangleGeometry.chunkOf(anchor.getZ() + OreRectangleGeometry.LAYER_HALF);
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                level.getChunk(chunkX, chunkZ);
+            }
+        }
     }
 }

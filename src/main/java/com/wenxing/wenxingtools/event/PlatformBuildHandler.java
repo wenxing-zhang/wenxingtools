@@ -44,20 +44,33 @@ public final class PlatformBuildHandler {
     private static final long TICK_BUDGET_NANOS = 8_000_000L;
     private static final int CHUNK_LOADS_PER_TICK = 2;
     private static final int DROP_BATCH_ENTRIES = 512;
+    /**
+     * 并发任务上限。每个任务独占一份掉落聚合与游标，并共享单 tick 的时间预算：
+     * 不设上限时玩家可用不同 Y 的平台方块并发堆任务，完成时间被线性摊薄、堆占用线性增长。
+     */
+    private static final int MAX_CONCURRENT_JOBS = 8;
     private static final List<Job> JOBS = new ArrayList<>();
 
     private PlatformBuildHandler() {
     }
 
-    /** @return false 表示该区域已有同锚点的任务在跑（连点不会叠加任务） */
-    public static boolean submit(ServerLevel level, ChunkPos center, int anchorY, ChunkScope scope, UUID playerId) {
+    /** 提交结果：调用方据此区分「同锚点重复」与「任务队列已满」，两者提示不同 */
+    public enum SubmitResult {
+        ACCEPTED, DUPLICATE_ANCHOR, TOO_MANY
+    }
+
+    /** @return {@link SubmitResult#DUPLICATE_ANCHOR} 表示同锚点已有任务在跑（连点不会叠加任务） */
+    public static SubmitResult submit(ServerLevel level, ChunkPos center, int anchorY, ChunkScope scope, UUID playerId) {
         for (Job job : JOBS) {
             if (job.level == level && job.center.equals(center) && job.anchorY == anchorY) {
-                return false;
+                return SubmitResult.DUPLICATE_ANCHOR;
             }
         }
+        if (JOBS.size() >= MAX_CONCURRENT_JOBS) {
+            return SubmitResult.TOO_MANY;
+        }
         JOBS.add(new Job(level, center, anchorY, scope, playerId));
-        return true;
+        return SubmitResult.ACCEPTED;
     }
 
     @SubscribeEvent
