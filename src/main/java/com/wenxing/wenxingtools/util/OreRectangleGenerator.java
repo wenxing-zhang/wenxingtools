@@ -11,7 +11,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * 矿石矩形生成：按 {@link OreRectangleGeometry} 的 99 格偏移逐格覆盖为矿石，单 tick 完成。
  *
- * <p>被替换方块不结算战利品（语义是「生成矿石」，产出即收益），因此这里刻意不走 dropResources。
+ * <p>被替换方块不结算战利品（语义是「生成矿石」，产出即收益），因此这里刻意不走 dropResources；
+ * 容器方块（箱子/熔炉/漏斗/潜影盒等）的内容物仍由原版 onRemove 弹出，本类不干预——与 wenxing 平台同口径。
  */
 public final class OreRectangleGenerator {
     private static final Block[] ORE_POOL = {
@@ -53,8 +54,10 @@ public final class OreRectangleGenerator {
                 continue;
             }
             Block block = ORE_POOL[OreRectangleGeometry.oreIndexOf(i)];
-            level.setBlock(pos, block.defaultBlockState(), Block.UPDATE_ALL);
-            placed++;
+            // UPDATE_CLIENTS：只同步客户端、不做邻居更新，避免范围内红石元件与依赖支撑的方块被惊动（与平台同口径）
+            if (level.setBlock(pos, block.defaultBlockState(), Block.UPDATE_CLIENTS)) {
+                placed++;
+            }
         }
         if (player != null) {
             player.displayClientMessage(Component.literal("已生成矿石矩形：3×3×" + OreRectangleGeometry.ORE_KINDS
