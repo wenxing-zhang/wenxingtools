@@ -3,10 +3,15 @@ package com.wenxing.wenxingtools.item;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.util.OreRectangleGenerator;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,13 +20,17 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.*;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -156,6 +165,21 @@ public class WenxingPickaxeItem extends PickaxeItem {
     }
 
     @Override
+    public InteractionResult useOn(UseOnContext context) {
+        Level level = context.getLevel();
+        BlockPos clicked = context.getClickedPos();
+        if (!level.getBlockState(clicked).is(Blocks.OAK_LOG)) {
+            return InteractionResult.PASS;
+        }
+        // 客户端只做预测：返回 SUCCESS 让本地挥手/音效正常，世界改写一律由服务端执行
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return InteractionResult.SUCCESS;
+        }
+        OreRectangleGenerator.generate(serverLevel, clicked, context.getPlayer());
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
     public float getDestroySpeed(ItemStack stack, BlockState state) {
         float hardness = state.getDestroySpeed(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
         if (hardness <= 0.0F) {
@@ -193,5 +217,12 @@ public class WenxingPickaxeItem extends PickaxeItem {
     @Override
     public int getEnchantmentValue() {
         return Tiers.NETHERITE.getEnchantmentValue();
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
+        tooltip.add(Component.translatable("item.wenxingtools.wenxing_pickaxe.desc")
+                .withStyle(ChatFormatting.LIGHT_PURPLE));
     }
 }

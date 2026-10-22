@@ -16,6 +16,7 @@
   "enchantment.wenxingtools.echo_amplification": "回响增幅",
   "enchantment.wenxingtools.echo_amplification.desc": "命中后对目标追加 10×等级 次虚空伤害",
   "item.wenxingtools.wenxing_pickaxe": "wenxing镐",
+  "item.wenxingtools.wenxing_pickaxe.desc": "右击橡木原木生成 3×3×11 矿石矩形：11 种矿石各占一个 3×3 面",
   "item.wenxingtools.wenxing_chestplate": "wenxing胸甲",
   "block.wenxingtools.custom_spawner": "wenxing刷怪笼",
   "item.wenxingtools.custom_spawner": "wenxing刷怪笼",

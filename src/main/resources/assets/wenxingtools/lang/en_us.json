@@ -16,6 +16,7 @@
   "enchantment.wenxingtools.echo_amplification": "Echo Amplification",
   "enchantment.wenxingtools.echo_amplification.desc": "After a hit, deals 10×level void damage hits.",
   "item.wenxingtools.wenxing_pickaxe": "Wenxing Pickaxe",
+  "item.wenxingtools.wenxing_pickaxe.desc": "Right-click an oak log to generate a 3x3x11 ore rectangle: 11 ores, each filling one 3x3 face",
   "item.wenxingtools.wenxing_chestplate": "Wenxing Chestplate",
   "block.wenxingtools.custom_spawner": "WenXing Spawner",
   "item.wenxingtools.custom_spawner": "WenXing Spawner",
