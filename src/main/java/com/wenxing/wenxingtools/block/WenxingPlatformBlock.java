@@ -20,9 +20,13 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
- * wenxing平台：手持木棍右击切换生成范围（3×3 / 9×9 / 15×15 区块），
+ * wenxing平台：手持 wenxing 镐右击切换生成范围（3×3 / 9×9 / 15×15 区块），
  * 蹲下右击以玩家所在区块为中心按当前范围生成平台。
  * 实际改写由 {@link PlatformBuildHandler} 分到多个 tick 完成，本类只做入口校验与去重。
+ *
+ * <p>潜行右击**不会**进入 {@link #use}：原版在潜行且手持非空物品时跳过方块交互
+ * （`ServerPlayerGameMode#useItemOn` 的 flag1 分支），因此生成入口同时挂在
+ * {@code WenxingPickaxeItem#useOn} 上，两处共用 {@link #tryBuild}。
  */
 public class WenxingPlatformBlock extends Block {
 
@@ -48,16 +52,27 @@ public class WenxingPlatformBlock extends Block {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
+        if (player.isShiftKeyDown()) {
+            return tryBuild(state, level, pos, player);
+        }
+        if (!(level instanceof ServerLevel serverLevel) || !state.hasProperty(SCOPE)) {
+            return InteractionResult.PASS;
+        }
+        ChunkScope next = state.getValue(SCOPE).next();
+        serverLevel.setBlock(pos, state.setValue(SCOPE, next), Block.UPDATE_ALL);
+        player.displayClientMessage(Component.literal("生成范围" + next.label() + "区块"), false);
+        return InteractionResult.CONSUME;
+    }
+
+    /**
+     * 生成入口：方块侧与物品侧共用，避免两处逻辑漂移。
+     * 相同「维度 + 中心区块 + 锚点 Y」同时只允许一个任务，连点不会叠加。
+     */
+    public static InteractionResult tryBuild(BlockState state, Level level, BlockPos pos, Player player) {
         if (!(level instanceof ServerLevel serverLevel) || !state.hasProperty(SCOPE)) {
             return InteractionResult.PASS;
         }
         ChunkScope scope = state.getValue(SCOPE);
-        if (!player.isShiftKeyDown()) {
-            ChunkScope next = scope.next();
-            serverLevel.setBlock(pos, state.setValue(SCOPE, next), Block.UPDATE_ALL);
-            player.displayClientMessage(Component.literal("生成范围" + next.label() + "区块"), false);
-            return InteractionResult.CONSUME;
-        }
         ChunkPos center = player.chunkPosition();
         int anchorY = pos.getY();
         if (!PlatformBuildHandler.submit(serverLevel, center, anchorY, scope, player.getUUID())) {

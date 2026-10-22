@@ -2,6 +2,8 @@ package com.wenxing.wenxingtools.item;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.wenxing.wenxingtools.block.ModBlocks;
+import com.wenxing.wenxingtools.block.WenxingPlatformBlock;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.util.OreRectangleGenerator;
 import net.minecraft.ChatFormatting;
@@ -168,14 +170,23 @@ public class WenxingPickaxeItem extends PickaxeItem {
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
         BlockPos clicked = context.getClickedPos();
-        if (!level.getBlockState(clicked).is(Blocks.OAK_LOG)) {
+        Player player = context.getPlayer();
+        BlockState state = level.getBlockState(clicked);
+        if (state.is(ModBlocks.WENXING_PLATFORM.get()) && player != null && player.isShiftKeyDown()) {
+            // 潜行右击不会回调 Block.use，平台生成必须在这里接住，否则方块侧的潜行分支是死代码
+            if (!(level instanceof ServerLevel serverLevel)) {
+                return InteractionResult.SUCCESS;
+            }
+            return WenxingPlatformBlock.tryBuild(state, serverLevel, clicked, player);
+        }
+        if (!state.is(Blocks.OAK_LOG)) {
             return InteractionResult.PASS;
         }
         // 客户端只做预测：返回 SUCCESS 让本地挥手/音效正常，世界改写一律由服务端执行
         if (!(level instanceof ServerLevel serverLevel)) {
             return InteractionResult.SUCCESS;
         }
-        OreRectangleGenerator.generate(serverLevel, clicked, context.getPlayer());
+        OreRectangleGenerator.generate(serverLevel, clicked, player);
         return InteractionResult.SUCCESS;
     }
 
