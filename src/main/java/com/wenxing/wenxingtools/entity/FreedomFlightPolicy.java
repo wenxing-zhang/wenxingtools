@@ -28,21 +28,50 @@ public final class FreedomFlightPolicy {
         return countsAsGrounded(flying, touchingGround, rising) && groundTicks >= GROUND_STOP_TICKS;
     }
 
-    /** 垂直输入：跳跃优先于潜行（与原版一致）。 */
+    /**
+     * 垂直输入：跳跃与潜行相加（与原版创造飞行一致——两者同时按下互相抵消为悬停）。
+     * 不能写成「跳跃优先」：那会让「按住潜行键下降时顺手按空格」变成持续上升。
+     */
     public static int verticalInput(boolean jumping, boolean shiftDown) {
-        if (jumping) {
-            return 1;
+        int input = 0;
+        if (shiftDown) {
+            --input;
         }
-        return shiftDown ? -1 : 0;
+        if (jumping) {
+            ++input;
+        }
+        return input;
+    }
+
+    /** 残余垂直速度低于该值即归零——悬停不靠被动衰减慢慢停下。 */
+    public static final double HOVER_SNAP = 0.03D;
+
+    /**
+     * 垂直输入为 0（双键同按或都不按）时的悬停制动：沿用原版衰减，并把小残余速度归零。
+     * 悬停必须由这一条显式给出，不能只靠「不加加速度」——那样两个方向都只剩被动衰减，
+     * 上升侧手上还有反向输入可即时刹住，下降侧就表现为「按了空格也停不下来」。
+     */
+    public static double hoverBrake(double currentY) {
+        double decayed = currentY * VERTICAL_DECAY;
+        return Math.abs(decayed) < HOVER_SNAP ? 0.0D : decayed;
+    }
+
+    /** 是否按原版飞行路径处理：原版字段为真，或本模组自由飞行中。 */
+    public static boolean effectiveFlying(boolean abilitiesFlying, boolean freedomFlying) {
+        return abilitiesFlying || freedomFlying;
+    }
+
+    /**
+     * 本刻输入是否要套用潜行减速系数。原版创造飞行时 crouching 恒为 false，
+     * 慢速判定因此不成立；自由飞行不写该能力字段，必须在这里显式抑制，
+     * 否则按住潜行键下降时水平输入会被乘成 30%。
+     */
+    public static boolean slowdownApplies(boolean movingSlowly, boolean flying) {
+        return movingSlowly && !flying;
     }
 
     /** 单刻垂直加速度增量。 */
     public static double verticalAccel(int verticalInput, float flyingSpeed) {
         return (double) verticalInput * (double) flyingSpeed * VERTICAL_ACCEL_FACTOR;
-    }
-
-    /** 垂直速度经一刻后的衰减值。 */
-    public static double frictionDecay(double previousY) {
-        return previousY * VERTICAL_DECAY;
     }
 }

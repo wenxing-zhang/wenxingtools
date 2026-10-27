@@ -19,10 +19,8 @@ public final class DropStackUtil {
     private DropStackUtil() {}
 
     /**
-     * 摊分条目上限，与 {@link MultiStackItemEntity} 的存储预算同量级。
-     * <p>
-     * 没有它时，倍率被异常调高（如 NBT 改出高等级附魔）会让 {@code count × multiplier}
-     * 在摊分阶段展开成上千万个 ItemStack，聚合体自身的条目预算来不及生效。
+     * 不同物品（「物品 + NBT」键）的条数上限，与 {@link MultiStackItemEntity} 的存储预算同量级。
+     * 同款数量合并进一条、计数可超过最大堆叠，所以它不再约束总量——百万倍率由计数承载。
      */
     private static final int MAX_TOTAL_STACKS = 4096;
 
@@ -104,6 +102,10 @@ public final class DropStackUtil {
         return totals;
     }
 
+    /**
+     * 每种「物品 + NBT」一条、计数不受最大堆叠限制——百万倍率靠计数承载，不展开成百万条。
+     * {@link #MAX_TOTAL_STACKS} 只限不同种类的条数。
+     */
     public static List<ItemStack> totalsToStacks(Map<StackKey, Long> totals) {
         List<ItemStack> stacks = new ArrayList<>();
         if (totals == null || totals.isEmpty()) {
@@ -115,25 +117,15 @@ public final class DropStackUtil {
             if (value <= 0) {
                 continue;
             }
-            ItemStack key = entry.getKey().stack();
-            long remaining = value;
-            int maxStack = Math.max(1, key.getMaxStackSize());
-            while (remaining > 0) {
-                if (stacks.size() >= MAX_TOTAL_STACKS) {
-                    discarded += remaining;
-                    break;
-                }
-                int chunk = (int) Math.min(remaining, maxStack);
-                stacks.add(copyWithCount(key, chunk));
-                remaining -= chunk;
+            if (stacks.size() >= MAX_TOTAL_STACKS) {
+                discarded += value;
+                continue;
             }
-            if (discarded > 0) {
-                break;
-            }
+            stacks.add(copyWithCount(entry.getKey().stack(), EntryBudget.saturate(value)));
         }
         if (discarded > 0) {
             WenXingTools.LOGGER.warn(
-                    "[resource_amp] drop stack budget exhausted: {} entries kept, {} remaining discarded",
+                    "[resource_amp] drop stack budget exhausted: {} kinds kept, {} remaining discarded",
                     stacks.size(), discarded);
         }
         return stacks;

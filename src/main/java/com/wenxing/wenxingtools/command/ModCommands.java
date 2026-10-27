@@ -106,7 +106,8 @@ public class ModCommands {
 
 
                 .then(Commands.literal("setResourceCharacteristics")
-                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000))
+                        // 上限一百万是特意要求（见设计方案 §4.4），不是可调平衡项，勿改小。
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000000))
                                 .executes(ctx -> setResourceMultiplier(ctx, IntegerArgumentType.getInteger(ctx, "amount")))
                         )
                 )
