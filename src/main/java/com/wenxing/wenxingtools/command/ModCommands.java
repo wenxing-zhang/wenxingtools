@@ -8,6 +8,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.wenxing.wenxingtools.WenXingTools;
+import com.wenxing.wenxingtools.capability.AuthorityData;
 import com.wenxing.wenxingtools.capability.AuthorityDataProvider;
 import com.wenxing.wenxingtools.capability.IAuthorityData;
 import com.wenxing.wenxingtools.network.PacketHandler;
@@ -107,7 +108,7 @@ public class ModCommands {
 
                 .then(Commands.literal("setResourceCharacteristics")
                         // 上限一百万是特意要求（见设计方案 §4.4），不是可调平衡项，勿改小。
-                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000000))
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, AuthorityData.MAX_RESOURCE_MULTIPLIER))
                                 .executes(ctx -> setResourceMultiplier(ctx, IntegerArgumentType.getInteger(ctx, "amount")))
                         )
                 )
