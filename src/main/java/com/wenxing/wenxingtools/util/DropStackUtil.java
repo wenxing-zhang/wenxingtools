@@ -126,22 +126,11 @@ public final class DropStackUtil {
             if (value <= 0) {
                 continue;
             }
-            ItemStack key = entry.getKey().stack();
-            long remaining = value;
-            int maxStack = Math.max(1, key.getMaxStackSize());
-            while (remaining > 0) {
-                // 条目预算先于 while 展开生效：超出即停止展开并记一条汇总警告，避免无界分配
-                if (stacks.size() >= MAX_TOTAL_STACKS) {
-                    discarded += remaining;
-                    break;
-                }
-                int chunk = (int) Math.min(remaining, maxStack);
-                stacks.add(copyWithCount(key, chunk));
-                remaining -= chunk;
+            if (stacks.size() >= MAX_TOTAL_STACKS) {
+                discarded += value;
+                continue;
             }
-            if (discarded > 0) {
-                break;
-            }
+            stacks.add(copyWithCount(entry.getKey().stack(), EntryBudget.saturate(value)));
         }
         if (discarded > 0) {
             WenXingTools.LOGGER.warn(

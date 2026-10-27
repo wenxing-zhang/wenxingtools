@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.entity;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import com.wenxing.wenxingtools.util.EntryBudget;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -65,15 +66,7 @@ public class MultiStackItemEntity extends ItemEntity {
         }
         for (ItemStack existing : stacks) {
             if (isSameKind(existing, stack)) {
-                long total = (long) existing.getCount() + stack.getCount();
-                existing.setCount((int) Math.min(total, Integer.MAX_VALUE));
-                // 拆超上限的尾数到新条，保持每条 ≤ maxStack
-                int max = Math.max(1, existing.getMaxStackSize());
-                if (existing.getCount() > max) {
-                    long overflow = existing.getCount() - max;
-                    existing.setCount(max);
-                    splitInto(stacks, copyWithCountSafe(stack, (int) Math.min(overflow, Integer.MAX_VALUE)));
-                }
+                existing.setCount(EntryBudget.merge(existing.getCount(), stack.getCount()));
                 refreshDisplay();
                 return;
             }
@@ -82,34 +75,31 @@ public class MultiStackItemEntity extends ItemEntity {
         refreshDisplay();
     }
 
-    private static ItemStack copyWithCountSafe(ItemStack source, int count) {
-        ItemStack copy = source.copy();
-        copy.setCount(count);
-        return copy;
-    }
-
     private static void splitInto(List<ItemStack> out, ItemStack stack) {
         if (!splitInto(out, stack, MAX_STORED_ENTRIES - out.size())) {
             WenXingTools.LOGGER.warn("[multi_stack_item] entry budget exhausted, discarded remaining {}", stack.getItem());
         }
     }
 
+    /**
+     * 同款同数据组件合并进同一条；否则新增一条并把全部计数放进去——不按最大堆叠拆条。
+     * 百万级数量因此只占一条 ItemStack，对象数与数量无关。
+     */
     private static boolean splitInto(List<ItemStack> out, ItemStack stack, int budget) {
         if (budget <= 0) {
             return false;
         }
-        int max = Math.max(1, stack.getMaxStackSize());
-        int remaining = stack.getCount();
-        int added = 0;
-        while (remaining > 0 && added < budget) {
-            int chunk = Math.min(remaining, max);
-            ItemStack piece = stack.copy();
-            piece.setCount(chunk);
-            out.add(piece);
-            remaining -= chunk;
-            added++;
+        int count = EntryBudget.saturate(stack.getCount());
+        for (ItemStack existing : out) {
+            if (isSameKind(existing, stack)) {
+                existing.setCount(EntryBudget.merge(existing.getCount(), count));
+                return true;
+            }
         }
-        return remaining <= 0;
+        ItemStack piece = stack.copy();
+        piece.setCount(count);
+        out.add(piece);
+        return true;
     }
 
     private static boolean isSameKind(ItemStack a, ItemStack b) {

@@ -149,7 +149,7 @@
 
 **效果**：开关开启后双击空格（跳跃键）起飞——前后方向键水平移动，跳跃键上升、潜行键下降；再双击收起，起飞后贴地持续 5 刻自动收起。关闭开关（按键 / 命令 / 失权自动关）立刻收起。
 
-**实现**：不再依赖「允许飞行」能力位——那条会被接管玩家能力数据的模组在能力同步时整体覆写。做法是**复用原版创造飞行的代码路径**：飞行态存自有权威数据字段（`freedomFlying`），用 Mixin 把原版「是否飞行中」的**全部消费点**改写到自有状态上（只改读取，不写 `Abilities` 字段本身）——该判定是单一不变量（`FreedomFlightPolicy.effectiveFlying`：原值为真，或本模组自由飞行中），覆盖：位移主干（垂直衰减与免坠落，`Player.travel`）、水平飞行速度（`getFlyingSpeed`）、潜行时的防掉边水平收窄（`maybeBackOffFromEdge`）、潜行姿势（`updatePlayerPose`）、入水是否切游泳（`updateSwimming` / `isSwimming`）、液体阻力与水流推动（`isAffectedByFluids` / `isPushedByFluid`）、方块减速系数（`getBlockSpeedFactor`）、方块黏滞（`makeStuckInBlock`）、移动音效与游戏事件（`getMovementEmission`）。漏改任何一处，飞行中都会出现行为错位（水平移动被防掉边或减速系数卡住、姿势切蹲导致碰撞箱变矮、入水被切成游泳、被水流推动、低空被方块减速、寻声守卫与幽匿感测器被惊动）。`LocalPlayer.aiStep` 另注入三段：垂直输入（跳跃 +1 / 潜行 -1 **相加**，同按互相抵消为悬停，补上原版被 `abilities.flying` 挡掉的那段）、**crouching 收尾置假**（原版靠 crouching 恒假让潜行减速、潜行姿势与第三方 `isCrouching` 判定自然失效；自由飞行不写该能力字段，故在 `aiStep` 收尾统一置假，不触碰任何读取点）、以及**慢速系数抑制**（`Input.tick` 调用处按纯判定抑制，作为 crouching 修正未生效时的冗余保险）。因为不写 `mayfly`，拿不到原版「悬空太久」检测的豁免名额，另用 Mixin 在 `ServerGamePacketListenerImpl.tick` 每刻清零该玩家的两个 floating 计数。登出、死亡克隆、重生、切维都会收起飞行（飞行态不跨死亡继承）。
+**实现**：不再依赖「允许飞行」能力位——那条会被接管玩家能力数据的模组在能力同步时整体覆写。做法是**复用原版创造飞行的代码路径**：飞行态存自有权威数据字段（`freedomFlying`），用 Mixin 把原版「是否飞行中」的**全部消费点**改写到自有状态上（只改读取，不写 `Abilities` 字段本身）——该判定是单一不变量（`FreedomFlightPolicy.effectiveFlying`：原值为真，或本模组自由飞行中），覆盖：位移主干（垂直衰减与免坠落，`Player.travel`）、水平飞行速度（`getFlyingSpeed`）、潜行时的防掉边水平收窄（`maybeBackOffFromEdge`）、潜行姿势（`updatePlayerPose`）、入水是否切游泳（`updateSwimming` / `isSwimming`）、液体阻力与水流推动（`isAffectedByFluids` / `isPushedByFluid`）、方块减速系数（`getBlockSpeedFactor`）、方块黏滞（`makeStuckInBlock`）、移动音效与游戏事件（`getMovementEmission`）。漏改任何一处，飞行中都会出现行为错位（水平移动被防掉边或减速系数卡住、姿势切蹲导致碰撞箱变矮、入水被切成游泳、被水流推动、低空被方块减速、寻声守卫与幽匿感测器被惊动）。`LocalPlayer.aiStep` 另注入三段：垂直输入（跳跃 +1 / 潜行 -1 **相加**，同按互相抵消为悬停，补上原版被 `abilities.flying` 挡掉的那段；输入为 0 时另行**显式制动**残余垂直速度——本模组注入处衰减 0.6，原版 travel 收尾再乘一次 0.6，等效约 0.36/刻；低于 0.03 归零，上升与下降两侧刻数一致，不依赖被动衰减）、**crouching 收尾置假**（原版靠 crouching 恒假让潜行减速、潜行姿势与第三方 `isCrouching` 判定自然失效；自由飞行不写该能力字段，故在 `aiStep` 收尾统一置假，不触碰任何读取点）、以及**慢速系数抑制**（`Input.tick` 调用处按纯判定抑制，作为 crouching 修正未生效时的冗余保险）。因为不写 `mayfly`，拿不到原版「悬空太久」检测的豁免名额，另用 Mixin 在 `ServerGamePacketListenerImpl.tick` 每刻清零该玩家的两个 floating 计数。登出、死亡克隆、重生、切维都会收起飞行（飞行态不跨死亡继承）。
 
 **边界**：贴地掠过（不足 5 刻）不收起；贴地时按住跳跃键可原地起飞。三个 Mixin 任一注入打空都会关闭本特性（启动自检）。`ServerFreedomFlightGuardMixin` 置于 common 段而非 server 段——单人游戏的逻辑服务端跑在客户端进程内，Mixin side 是 CLIENT，放 server 段会导致单人下不被豁免。开关入口一个网络包，协议版本由 3 升到 4（新旧版本客户端与服务端不互通）。
 
@@ -172,7 +172,7 @@
 
 ### 4.4 权威资源（丢弃倍增）
 
-**效果**：手动丢弃时数量 ×倍增，落地为多合一实体。倍增 1–1000，默认 10。拾取延迟 40 刻（防立刻吸回）。
+**效果**：手动丢弃时数量 ×倍增，落地为多合一实体。倍增 **1–1 000 000**，默认 10。**上限一百万是特意要求**——本模组不在乎平衡，不是可调项，勿压回千级。落地上限就是倍率本身：同一「物品 + 数据组件」合并成一条、计数可超过最大堆叠，百万数量由**计数**承载（条目预算 4096 只限不同种类），可堆叠与不可堆叠都逐字生效。拾取延迟 40 刻（防立刻吸回）。
 
 **实现**：丢弃事件**最低优先级**；入口先判事件是否已被取消；权限+开关双检；清空原实体内容，新建多合一实体并继承速度与丢弃者。
 
