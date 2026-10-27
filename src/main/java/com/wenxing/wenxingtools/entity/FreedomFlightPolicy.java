@@ -43,6 +43,19 @@ public final class FreedomFlightPolicy {
         return input;
     }
 
+    /** 残余垂直速度低于该值即归零——悬停不靠被动衰减慢慢停下。 */
+    public static final double HOVER_SNAP = 0.03D;
+
+    /**
+     * 垂直输入为 0（双键同按或都不按）时的悬停制动：沿用原版衰减，并把小残余速度归零。
+     * 悬停必须由这一条显式给出，不能只靠「不加加速度」——那样两个方向都只剩被动衰减，
+     * 上升侧手上还有反向输入可即时刹住，下降侧就表现为「按了空格也停不下来」。
+     */
+    public static double hoverBrake(double currentY) {
+        double decayed = currentY * VERTICAL_DECAY;
+        return Math.abs(decayed) < HOVER_SNAP ? 0.0D : decayed;
+    }
+
     /** 是否按原版飞行路径处理：原版字段为真，或本模组自由飞行中。 */
     public static boolean effectiveFlying(boolean abilitiesFlying, boolean freedomFlying) {
         return abilitiesFlying || freedomFlying;
@@ -60,10 +73,5 @@ public final class FreedomFlightPolicy {
     /** 单刻垂直加速度增量。 */
     public static double verticalAccel(int verticalInput, float flyingSpeed) {
         return (double) verticalInput * (double) flyingSpeed * VERTICAL_ACCEL_FACTOR;
-    }
-
-    /** 垂直速度经一刻后的衰减值。 */
-    public static double frictionDecay(double previousY) {
-        return previousY * VERTICAL_DECAY;
     }
 }

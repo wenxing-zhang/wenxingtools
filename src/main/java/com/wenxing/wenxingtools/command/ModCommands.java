@@ -9,6 +9,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.attachment.AuthorityAttachments;
+import com.wenxing.wenxingtools.attachment.AuthorityData;
 import com.wenxing.wenxingtools.attachment.IAuthorityData;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.network.ModNetwork;
@@ -95,7 +96,8 @@ public class ModCommands {
                         .then(Commands.literal("all").executes(ctx -> setKillAuraMode(ctx, KillAuraMode.ALL)))
                         .then(Commands.literal("hostile").executes(ctx -> setKillAuraMode(ctx, KillAuraMode.HOSTILE))))
                 .then(Commands.literal("setResourceCharacteristics")
-                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, 1000))
+                        // 上限一百万是特意要求（见设计方案 §4.4），不是可调平衡项，勿改小。
+                        .then(Commands.argument("amount", IntegerArgumentType.integer(1, AuthorityData.MAX_RESOURCE_MULTIPLIER))
                                 .executes(ctx -> setResourceMultiplier(ctx, IntegerArgumentType.getInteger(ctx, "amount")))))
                 .then(Commands.literal("whitelist")
                         // 白名单管理独立于特性准入：仅 OP2 可增删，防白名单成员互相扩权/吊销
@@ -198,8 +200,9 @@ public class ModCommands {
         IAuthorityData data = AuthorityAttachments.getData(player);
         if (data != null) {
             data.setResourceMultiplier(amount);
+            // 提示读回落地值：上限由数据层收敛，直接回显入参会在将来再次改上限时给出与实际生效值不符的提示。
             sendStatusFeedback(player, "msg.wenxingtools.label.resource_multiplier",
-                    Component.translatable("msg.wenxingtools.resource.multiplier_set", amount),
+                    Component.translatable("msg.wenxingtools.resource.multiplier_set", data.getResourceMultiplier()),
                     ChatFormatting.YELLOW);
             ModNetwork.syncAuthorityData(player);
         }

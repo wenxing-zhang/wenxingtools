@@ -1,5 +1,6 @@
 package com.wenxing.wenxingtools.mixin;
 
+import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.util.MixinMarkers;
 import com.wenxing.wenxingtools.entity.FreedomFlightPolicy;
 import com.wenxing.wenxingtools.entity.FreedomFlightService;
@@ -8,6 +9,7 @@ import net.minecraft.client.player.Input;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -31,6 +33,10 @@ public abstract class LocalPlayerFreedomFlightMixin implements MixinMarkers.Free
     @Shadow
     private boolean crouching;
 
+    /** 上一刻的垂直输入：仅在改变时打诊断日志（正常游戏 debug 关闭，零输出）。 */
+    @Unique
+    private int wenxingtools$lastVertical = Integer.MIN_VALUE;
+
     @Inject(
             method = "aiStep",
             // super.aiStep() 的字节码 owner 是直接父类 AbstractClientPlayer（而非 Player），
@@ -46,7 +52,16 @@ public abstract class LocalPlayerFreedomFlightMixin implements MixinMarkers.Free
             return;
         }
         int vertical = FreedomFlightPolicy.verticalInput(self.input.jumping, self.input.shiftKeyDown);
+        double currentY = self.getDeltaMovement().y;
+        if (WenXingTools.LOGGER.isDebugEnabled() && vertical != this.wenxingtools$lastVertical) {
+            WenXingTools.LOGGER.debug("[freedom_flight] vertical={} jumping={} shift={} dy={}",
+                    vertical, self.input.jumping, self.input.shiftKeyDown, (float) currentY);
+        }
+        this.wenxingtools$lastVertical = vertical;
         if (vertical == 0) {
+            // 悬停要显式制动：只靠「不加加速度」时下降侧会一直带着残余速度下沉。
+            self.setDeltaMovement(self.getDeltaMovement().add(0.0D,
+                    FreedomFlightPolicy.hoverBrake(currentY) - currentY, 0.0D));
             return;
         }
         self.setDeltaMovement(self.getDeltaMovement().add(0.0D,

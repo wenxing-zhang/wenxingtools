@@ -1,5 +1,6 @@
 package com.wenxing.wenxingtools.entity;
 
+import com.wenxing.wenxingtools.util.EntryBudget;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,6 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code abilities.flying} 的读值语义，慢速系数取 LocalPlayer.aiStep 的 input.tick 前置判定。
  */
 class FreedomFlightPolicyTest {
+
+    @Test
+    void entryBudgetCarriesMillionsInOneEntry() {
+        assertEquals(1_000_000, EntryBudget.saturate(1_000_000L), "百万计数原样承载，不按最大堆叠拆");
+        assertEquals(Integer.MAX_VALUE, EntryBudget.saturate(Long.MAX_VALUE), "超出 int 上限：饱和，不回绕成负");
+        assertEquals(0, EntryBudget.saturate(-5L), "负值归零");
+        assertEquals(2_000_000, EntryBudget.merge(1_000_000, 1_000_000), "同款相加");
+        assertEquals(Integer.MAX_VALUE, EntryBudget.merge(Integer.MAX_VALUE, 1), "相加饱和");
+    }
 
     @Test
     void verticalInputAddsBothKeysSoTheyCancelOut() {
@@ -63,6 +73,16 @@ class FreedomFlightPolicyTest {
         // 与 0.15 差 2.2E-9。用 1.0E-12 必然失败，但那衡量的是 float 表示误差，不是公式错。
         assertEquals(0.15D, FreedomFlightPolicy.verticalAccel(1, 0.05F), 1.0E-7, "上升：flyingSpeed * 3");
         assertEquals(-0.15D, FreedomFlightPolicy.verticalAccel(-1, 0.05F), 1.0E-7, "下降：对称取负");
-        assertEquals(0.3D, FreedomFlightPolicy.frictionDecay(0.5D), 1.0E-12, "每刻末垂直速度乘 0.6");
+    }
+
+    @Test
+    void hoverBrakeDecaysAndSnapsToZero() {
+        // 仅覆盖制动目标值；travel 末的再衰减属运行时行为，不在纯函数层断言。
+        assertEquals(0.0D, FreedomFlightPolicy.hoverBrake(0.0D), 1.0E-12, "静止：保持静止");
+        assertEquals(0.3D, FreedomFlightPolicy.hoverBrake(0.5D), 1.0E-12, "上升残余：按 0.6 衰减");
+        assertEquals(-0.3D, FreedomFlightPolicy.hoverBrake(-0.5D), 1.0E-12, "下降残余：对称衰减");
+        assertEquals(0.0D, FreedomFlightPolicy.hoverBrake(0.02D), 1.0E-12, "衰减后低于 0.03：归零");
+        assertEquals(0.0D, FreedomFlightPolicy.hoverBrake(-0.02D), 1.0E-12, "下降侧同样归零");
+        assertEquals(0.036D, FreedomFlightPolicy.hoverBrake(0.06D), 1.0E-12, "衰减后高于 0.03：保留");
     }
 }

@@ -3,6 +3,9 @@ package com.wenxing.wenxingtools.attachment;
 import net.minecraft.nbt.CompoundTag;
 
 public class AuthorityData implements IAuthorityData {
+    /** 资源特性倍率上限：命令参数、setter 与 NBT 反序列化共用同一常量，避免三处各自写死而漂移。 */
+    public static final int MAX_RESOURCE_MULTIPLIER = 1_000_000;
+
     private boolean invincibleCharacteristic = false;
     private float lockedHealth = 20.0f;
 
@@ -74,7 +77,7 @@ public class AuthorityData implements IAuthorityData {
 
     @Override
     public void setResourceMultiplier(int multiplier) {
-        this.resourceMultiplier = Math.max(1, Math.min(multiplier, 1000));
+        this.resourceMultiplier = Math.max(1, Math.min(multiplier, MAX_RESOURCE_MULTIPLIER));
         this.dirty = true;
     }
 
@@ -155,7 +158,7 @@ public class AuthorityData implements IAuthorityData {
             resourceCharacteristic = nbt.getBoolean("resourceCharacteristic");
         }
         if (nbt.contains("resourceMultiplier")) {
-            resourceMultiplier = Math.max(1, Math.min(nbt.getInt("resourceMultiplier"), 1000));
+            resourceMultiplier = Math.max(1, Math.min(nbt.getInt("resourceMultiplier"), MAX_RESOURCE_MULTIPLIER));
         }
         if (nbt.contains("freedomCharacteristic")) {
             freedomCharacteristic = nbt.getBoolean("freedomCharacteristic");
