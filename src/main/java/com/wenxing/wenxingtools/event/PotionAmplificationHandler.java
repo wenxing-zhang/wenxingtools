@@ -13,10 +13,12 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -39,10 +41,16 @@ public final class PotionAmplificationHandler {
     private static final long POTION_AMPLIFICATION_HOUR_TICKS = 72000L;
     private static final int POTION_AMPLIFICATION_SAFE_DURATION_CAP = 48 * 72_000;
     private static final Map<UUID, EnumMap<EquipmentSlot, ItemStack>> POTION_AMP_LAST_EQUIPPED = new ConcurrentHashMap<>();
+    /** 是否有任一护甲槽带药水增幅（装备变化时刷新），供每 tick 兜底短路。 */
+    private static final Map<UUID, Boolean> POTION_AMP_PRESENT = new ConcurrentHashMap<>();
+    /** 上次见到的效果数量，用于捕获绕过准入判定的效果表写入。 */
+    private static final Map<UUID, Integer> POTION_AMP_EFFECT_COUNT = new ConcurrentHashMap<>();
 
     public static void clearPotionAmplificationPlayerState(UUID playerId) {
         if (playerId != null) {
             POTION_AMP_LAST_EQUIPPED.remove(playerId);
+            POTION_AMP_PRESENT.remove(playerId);
+            POTION_AMP_EFFECT_COUNT.remove(playerId);
         }
     }
 
@@ -76,11 +84,13 @@ public final class PotionAmplificationHandler {
             }
             rememberPotionAmpArmor(player, slot, worn ? to : ItemStack.EMPTY);
         });
+        POTION_AMP_PRESENT.put(player.getUUID(), getMaxPotionAmplificationLevelOnArmor(player) > 0);
     }
 
     // 净化只在「身上效果发生变化」时判定：Applicable 由 addEffect / forceAddEffect 的第一步发出，
     // 结果为 DO_NOT_APPLY 时效果根本不进 activeEffects，也不再同步给客户端。
-    @SubscribeEvent
+    // 优先级 LOWEST：排在净化增幅（HIGHEST）之后收尾，且从不设 APPLY，绝不把它的拒绝翻成允许。
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onEffectApplicable(MobEffectEvent.Applicable event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
@@ -96,6 +106,33 @@ public final class PotionAmplificationHandler {
             return;
         }
         event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
+    }
+
+    // 兜底：第三方绕过 addEffect / forceAddEffect 直接写效果表时，准入判定完全看不到。
+    // 只比数量（O(1)，不遍历集合），数量一变才做一次全量清扫；未穿护甲者不入缓存、开销为零。
+    @SubscribeEvent
+    public static void onPlayerTick(PlayerTickEvent.Post event) {
+        Player player = event.getEntity();
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        UUID playerId = serverPlayer.getUUID();
+        Boolean present = POTION_AMP_PRESENT.get(playerId);
+        if (present == null) {
+            present = getMaxPotionAmplificationLevelOnArmor(serverPlayer) > 0;
+            POTION_AMP_PRESENT.put(playerId, present);
+        }
+        if (!present) {
+            POTION_AMP_EFFECT_COUNT.remove(playerId);
+            return;
+        }
+        int count = serverPlayer.getActiveEffects().size();
+        Integer previous = POTION_AMP_EFFECT_COUNT.put(playerId, count);
+        if (previous != null && previous == count) {
+            return;
+        }
+        cleanseHarmfulEffects(serverPlayer, getMaxPotionAmplificationLevelOnArmor(serverPlayer));
+        POTION_AMP_EFFECT_COUNT.put(playerId, serverPlayer.getActiveEffects().size());
     }
 
     // 读档（登录/重生/跨维度）直接写 activeEffects、不经过 addEffect，事件路径盯不到——进入生效态时补扫一次。
