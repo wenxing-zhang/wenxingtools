@@ -66,7 +66,7 @@ public final class EffectPurgeSupport {
         }
         boolean hasPurgeable = false;
         for (net.minecraft.world.effect.MobEffectInstance instance : active) {
-            if (!isProtectedFromPurge(instance)) {
+            if (!isProtectedEffect(instance)) {
                 hasPurgeable = true;
                 break;
             }
@@ -75,14 +75,18 @@ public final class EffectPurgeSupport {
             return;
         }
         for (net.minecraft.world.effect.MobEffectInstance instance : new ArrayList<>(active)) {
-            if (isProtectedFromPurge(instance)) {
+            if (isProtectedEffect(instance)) {
                 continue;
             }
             target.removeEffect(instance.getEffect());
         }
     }
 
-    private static boolean isProtectedFromPurge(net.minecraft.world.effect.MobEffectInstance effect) {
+    /**
+     * 第三方保护类效果：本模组的清除一律跳过（如 attributearch 给玩家挂的护盾）。
+     * 净化的「清药水」与药水增幅的「清负面」共用此判定，避免两处口径分叉。
+     */
+    public static boolean isProtectedEffect(net.minecraft.world.effect.MobEffectInstance effect) {
         if (effect == null) {
             return false;
         }
