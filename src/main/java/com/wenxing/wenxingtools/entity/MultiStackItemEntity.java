@@ -250,15 +250,34 @@ public class MultiStackItemEntity extends ItemEntity {
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
-        ListTag list = new ListTag();
-        for (ItemStack stack : stacks) {
-            CompoundTag entry = new CompoundTag();
-            entry.put("stack", stack.save(this.registryAccess()));
-            entry.putInt(TAG_COUNT, stack.getCount());
-            list.add(entry);
+        // 1.21.1 的 ItemStack.CODEC 把 count 限在 [1,99]，超限编码即抛异常（不是截断）。
+        // 显示栈与条目因此一律按 count=1 落盘，真实数量由 WTCount 承载——与本类的「计数不靠条目」一致。
+        ItemStack display = super.getItem();
+        boolean restoreDisplay = !display.isEmpty();
+        if (restoreDisplay) {
+            refreshDisplayWith(withCountOne(display));
         }
-        tag.put(TAG_STACKS, list);
+        try {
+            super.addAdditionalSaveData(tag);
+            ListTag list = new ListTag();
+            for (ItemStack stack : stacks) {
+                CompoundTag entry = new CompoundTag();
+                entry.put("stack", withCountOne(stack).save(this.registryAccess()));
+                entry.putInt(TAG_COUNT, stack.getCount());
+                list.add(entry);
+            }
+            tag.put(TAG_STACKS, list);
+        } finally {
+            if (restoreDisplay) {
+                refreshDisplay();
+            }
+        }
+    }
+
+    private static ItemStack withCountOne(ItemStack source) {
+        ItemStack prototype = source.copy();
+        prototype.setCount(1);
+        return prototype;
     }
 
     @Override
