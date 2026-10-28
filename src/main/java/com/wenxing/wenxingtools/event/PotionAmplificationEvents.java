@@ -10,8 +10,9 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingEquipmentChangeEvent;
+import net.minecraftforge.event.entity.living.MobEffectEvent;
+import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -68,6 +69,7 @@ public final class PotionAmplificationEvents {
                     int maxLevel = getMaxPotionAmplificationLevelOnArmor(player);
                     if (maxLevel > 0) {
                         accruePotionAmplificationDuration(player, maxLevel);
+                        cleanseHarmfulEffects(player, maxLevel);
                     }
                 }
             }
@@ -78,36 +80,48 @@ public final class PotionAmplificationEvents {
     }
 
 
-    // 净化只对玩家生效，故挂 PlayerTickEvent 而非 LivingTickEvent——后者会对全服每个 LivingEntity
-    // 每 tick 分发一次，而函数体第一件事就是把非玩家排除掉。
+    // 净化只在「身上效果发生变化」时判定：Applicable 由 LivingEntity#canBeAffected 发出，
+    // 而 addEffect 的第一步就是 canBeAffected——DENY 时效果根本不进 activeEffects，也不再同步给客户端。
     @SubscribeEvent
-    public static void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
+    public static void onEffectApplicable(MobEffectEvent.Applicable event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        if (event.player.level().isClientSide) {
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance == null) {
             return;
         }
-        if (!(event.player instanceof ServerPlayer player)) {
+        boolean harmful = instance.getEffect().getCategory() == MobEffectCategory.HARMFUL;
+        if (!PotionCleanseRule.shouldCleanse(getMaxPotionAmplificationLevelOnArmor(player), harmful)) {
             return;
         }
-        cleanseHarmfulEffects(player);
+        event.setResult(Event.Result.DENY);
     }
 
 
-    private static void cleanseHarmfulEffects(Player player) {
-        if (getMaxPotionAmplificationLevelOnArmor(player) <= 0) {
+    // 读档（登录/重生/跨维度）直接写 activeEffects、不经过 addEffect，事件路径盯不到——进入生效态时补扫一次。
+    static void cleanseHarmfulEffectsIfWorn(Player player) {
+        if (player == null || player.level().isClientSide) {
+            return;
+        }
+        cleanseHarmfulEffects(player, getMaxPotionAmplificationLevelOnArmor(player));
+    }
+
+
+    private static void cleanseHarmfulEffects(Player player, int maxLevel) {
+        if (maxLevel <= 0) {
             return;
         }
         List<MobEffect> harmful = null;
         for (MobEffectInstance instance : player.getActiveEffects()) {
             MobEffect effect = instance.getEffect();
-            if (effect.getCategory() == MobEffectCategory.HARMFUL) {
-                if (harmful == null) {
-                    harmful = new ArrayList<>();
-                }
-                harmful.add(effect);
+            if (!PotionCleanseRule.shouldCleanse(maxLevel, effect.getCategory() == MobEffectCategory.HARMFUL)) {
+                continue;
             }
+            if (harmful == null) {
+                harmful = new ArrayList<>();
+            }
+            harmful.add(effect);
         }
         if (harmful == null) {
             return;

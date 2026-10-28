@@ -105,6 +105,7 @@ public final class AmpSupport {
         clearLifeAmplificationLevelState(player.getUUID());
         clearPotionAmplificationPlayerState(player.getUUID());
         syncPlayerAmplifications(player);
+        PotionAmplificationEvents.cleanseHarmfulEffectsIfWorn(player);
         // 切维/重生/登录后客户端 LocalPlayer 重建，强制重发夜视/幸运，避免 addEffect 无变更不发包
         LifeAmplificationEvents.forceResyncLifeAmplificationEffects(player);
     }
