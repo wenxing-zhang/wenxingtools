@@ -5,6 +5,7 @@ import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.util.CombatReentry;
 import net.minecraft.core.Holder;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -15,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
-import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import net.neoforged.neoforge.event.entity.living.MobEffectEvent;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -38,13 +39,10 @@ public final class PotionAmplificationHandler {
     private static final long POTION_AMPLIFICATION_HOUR_TICKS = 72000L;
     private static final int POTION_AMPLIFICATION_SAFE_DURATION_CAP = 48 * 72_000;
     private static final Map<UUID, EnumMap<EquipmentSlot, ItemStack>> POTION_AMP_LAST_EQUIPPED = new ConcurrentHashMap<>();
-    /** 是否有任一护甲槽带药水增幅（供每 tick 清理短路；装备变化时刷新）。 */
-    private static final Map<UUID, Boolean> POTION_AMP_PRESENT = new ConcurrentHashMap<>();
 
     public static void clearPotionAmplificationPlayerState(UUID playerId) {
         if (playerId != null) {
             POTION_AMP_LAST_EQUIPPED.remove(playerId);
-            POTION_AMP_PRESENT.remove(playerId);
         }
     }
 
@@ -72,41 +70,52 @@ public final class PotionAmplificationHandler {
                     int maxLevel = getMaxPotionAmplificationLevelOnArmor(player);
                     if (maxLevel > 0) {
                         accruePotionAmplificationDuration(player, maxLevel);
+                        cleanseHarmfulEffects(player, maxLevel);
                     }
                 }
             }
             rememberPotionAmpArmor(player, slot, worn ? to : ItemStack.EMPTY);
         });
-        // 护甲变化即刷新「是否有药水增幅」缓存，供每 tick 清理短路（行为与每 tick 全量扫描一致）
-        POTION_AMP_PRESENT.put(player.getUUID(), getMaxPotionAmplificationLevelOnArmor(player) > 0);
     }
 
+    // 净化只在「身上效果发生变化」时判定：Applicable 由 addEffect / forceAddEffect 的第一步发出，
+    // 结果为 DO_NOT_APPLY 时效果根本不进 activeEffects，也不再同步给客户端。
     @SubscribeEvent
-    public static void onPlayerTick(PlayerTickEvent.Post event) {
-        Player player = event.getEntity();
-        if (player.level().isClientSide) {
+    public static void onEffectApplicable(MobEffectEvent.Applicable event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
         }
-        cleanseHarmfulEffects(player);
+        MobEffectInstance instance = event.getEffectInstance();
+        if (instance == null) {
+            return;
+        }
+        if (!PotionCleanseRule.shouldCleanse(
+                getMaxPotionAmplificationLevelOnArmor(player),
+                instance.getEffect().value().getCategory() == MobEffectCategory.HARMFUL,
+                EffectPurgeSupport.isProtectedEffect(instance))) {
+            return;
+        }
+        event.setResult(MobEffectEvent.Applicable.Result.DO_NOT_APPLY);
     }
 
-    private static void cleanseHarmfulEffects(Player player) {
-        Boolean present = POTION_AMP_PRESENT.get(player.getUUID());
-        if (present == null) {
-            // 缓存缺失（登录后首次 / 未经装备事件）：实时计算并缓存
-            present = getMaxPotionAmplificationLevelOnArmor(player) > 0;
-            POTION_AMP_PRESENT.put(player.getUUID(), present);
+    // 读档（登录/重生/跨维度）直接写 activeEffects、不经过 addEffect，事件路径盯不到——进入生效态时补扫一次。
+    public static void cleanseHarmfulEffectsIfWorn(Player player) {
+        if (player == null || player.level().isClientSide) {
+            return;
         }
-        if (!present) {
+        cleanseHarmfulEffects(player, getMaxPotionAmplificationLevelOnArmor(player));
+    }
+
+    private static void cleanseHarmfulEffects(Player player, int maxLevel) {
+        if (maxLevel <= 0) {
             return;
         }
         List<Holder<MobEffect>> harmful = null;
         for (MobEffectInstance instance : player.getActiveEffects()) {
-            if (instance.getEffect().value().getCategory() != MobEffectCategory.HARMFUL) {
-                continue;
-            }
-            // 与净化同口径：第三方保护类效果（如 attributearch 的护盾）不清除
-            if (EffectPurgeSupport.isProtectedEffect(instance)) {
+            if (!PotionCleanseRule.shouldCleanse(
+                    maxLevel,
+                    instance.getEffect().value().getCategory() == MobEffectCategory.HARMFUL,
+                    EffectPurgeSupport.isProtectedEffect(instance))) {
                 continue;
             }
             if (harmful == null) {

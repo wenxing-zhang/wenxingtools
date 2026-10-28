@@ -37,6 +37,7 @@ public final class AmplificationSyncCoordinator {
         LifeAmplificationHandler.clearLifeAmplificationLevelState(player.getUUID());
         PotionAmplificationHandler.clearPotionAmplificationPlayerState(player.getUUID());
         syncPlayerAmplifications(player);
+        PotionAmplificationHandler.cleanseHarmfulEffectsIfWorn(player);
         // 切维/重生/登录后客户端 LocalPlayer 重建，强制重发夜视/幸运，避免 addEffect 无变更不发包
         LifeAmplificationHandler.forceResyncLifeAmplificationEffects(player);
     }
