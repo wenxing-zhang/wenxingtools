@@ -2,10 +2,12 @@ package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.integration.TaczIntegration;
-import com.wenxing.wenxingtools.util.CombatUtil;
+import com.wenxing.wenxingtools.util.AmpRules;
+import com.wenxing.wenxingtools.util.AttackerKind;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -24,22 +26,20 @@ public final class AmpSupport {
     private AmpSupport() {
     }
 
-    public static boolean isResourceAmplificationEnabled(Player player) {
-        if (player == null) {
+    /** 开关读物品：跟着物品走，女仆与假玩家手持即可生效，不再依赖玩家身上的状态。 */
+    public static boolean isResourceAmpEnabled(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
             return false;
         }
-        CompoundTag data = player.getPersistentData();
-        if (!data.contains(AmpConstants.RESOURCE_AMPLIFICATION_PLAYER_TAG)) {
-            return false;
-        }
-        return data.getBoolean(AmpConstants.RESOURCE_AMPLIFICATION_PLAYER_TAG);
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.getBoolean(AmpConstants.RESOURCE_AMPLIFICATION_ITEM_TAG);
     }
 
-    public static void setResourceAmplificationEnabled(Player player, boolean enabled) {
-        if (player == null) {
+    public static void setResourceAmpEnabled(ItemStack stack, boolean enabled) {
+        if (stack == null || stack.isEmpty()) {
             return;
         }
-        player.getPersistentData().putBoolean(AmpConstants.RESOURCE_AMPLIFICATION_PLAYER_TAG, enabled);
+        stack.getOrCreateTag().putBoolean(AmpConstants.RESOURCE_AMPLIFICATION_ITEM_TAG, enabled);
     }
 
     public static int computeResourceFactor(int level) {
@@ -102,6 +102,7 @@ public final class AmpSupport {
         if (player == null || player.level().isClientSide) {
             return;
         }
+        player.getPersistentData().remove(AmpConstants.RESOURCE_AMPLIFICATION_PLAYER_TAG);
         clearLifeAmplificationLevelState(player.getUUID());
         clearPotionAmplificationPlayerState(player.getUUID());
         syncPlayerAmplifications(player);
@@ -152,91 +153,138 @@ public final class AmpSupport {
             return player;
         }
         Entity direct = source.getDirectEntity();
-        if (direct instanceof net.minecraft.world.entity.projectile.Projectile projectile) {
-            Entity owner = projectile.getOwner();
-            if (owner instanceof Player player) {
-                return player;
-            }
-        }
-        if (TaczIntegration.isTaczBulletEntity(direct)
-                && direct instanceof net.minecraft.world.entity.projectile.Projectile projectile) {
-            Entity owner = projectile.getOwner();
-            if (owner instanceof Player player) {
-                return player;
-            }
+        if (direct instanceof net.minecraft.world.entity.projectile.Projectile projectile
+                && projectile.getOwner() instanceof Player player) {
+            return player;
         }
         return null;
     }
 
     /**
-     * 击杀归属：伤害源里解析不到玩家时，回退到实体自记的击杀者（{@link LivingEntity#getKillCredit()}）。
+     * 解析攻击者并分类，解析不出来时回退目标自记的击杀者。
      * <p>
-     * 第三方用「无来源实体」的伤害收尾时（如 {@code damageSources().magic()}，{@code getEntity()} 为 null），
-     * 伤害源中根本没有玩家可识别；但同一 tick 内此前命中已经 setLastHurtByPlayer 记下玩家。
-     * 不回退的后果是资源增幅倍率归零、掠蛋整段跳过。
+     * 与 {@link #resolvePlayerAttacker} 的差别：这里接受任意生物（女仆、其他模组的召唤物、Forge 假玩家），
+     * 附魔链路用它；需要真实玩家身份的权限/无敌特性路径仍用 {@code resolvePlayerAttacker}。
      */
-    public static Player resolveKillAttribution(Player sourceAttacker, LivingEntity target) {
-        if (sourceAttacker != null) {
-            if (CombatUtil.isNotValidAttackerPlayer(sourceAttacker)) {
-                return null;
+    public static Attacker resolveAttacker(net.minecraft.world.damagesource.DamageSource source) {
+        LivingEntity resolved = resolveAttackerEntity(source);
+        return resolved == null ? null : new Attacker(resolved, classifyAttacker(resolved));
+    }
+
+    /**
+     * 击杀归属：伤害源解析不出时回退目标自记的击杀者。
+     * <p>
+     * <b>只用于死亡与掉落链。</b>命中链不得回退——否则「玩家打过、别的实体收尾」的伤害会被算成玩家攻击，
+     * 攻击增幅与回响会在错误来源上多打一次真伤。
+     */
+    public static Attacker resolveKillAttacker(net.minecraft.world.damagesource.DamageSource source, LivingEntity target) {
+        Attacker attacker = resolveAttacker(source);
+        if (attacker != null) {
+            return attacker;
+        }
+        LivingEntity credit = target == null ? null : target.getKillCredit();
+        return credit == null ? null : new Attacker(credit, classifyAttacker(credit));
+    }
+
+    private static LivingEntity resolveAttackerEntity(net.minecraft.world.damagesource.DamageSource source) {
+        if (source == null) {
+            return null;
+        }
+        Entity causing = source.getEntity();
+        if (causing instanceof LivingEntity living) {
+            return living;
+        }
+        Entity direct = source.getDirectEntity();
+        if (direct instanceof net.minecraft.world.entity.projectile.Projectile projectile
+                && projectile.getOwner() instanceof LivingEntity owner) {
+            return owner;
+        }
+        return null;
+    }
+
+    /**
+     * 真实玩家判据：能在这个 ServerPlayer 自己的服务端玩家列表里查到它。
+     * <p>
+     * 不用 {@code instanceof FakePlayer}——模组自建的 ServerPlayer 子类同样应算假玩家；
+     * 也不用 {@code connection == null}——Forge 的 FakePlayer 会给自己塞一个 FakePlayerNetHandler。
+     */
+    public static AttackerKind classifyAttacker(LivingEntity entity) {
+        if (!(entity instanceof Player player)) {
+            return AttackerKind.MOB;
+        }
+        boolean inPlayerList = false;
+        if (player instanceof ServerPlayer serverPlayer && serverPlayer.getServer() != null) {
+            inPlayerList = serverPlayer.getServer().getPlayerList().getPlayer(serverPlayer.getUUID()) == serverPlayer;
+        }
+        return AmpRules.classify(true, inPlayerList);
+    }
+
+    /**
+     * 装备槽等级取最大。
+     * <p>
+     * 遍历全部槽位而不是只看主手：副手与护甲槽同样算。对生物而言这四个护甲槽
+     * 就是它的装备栏，女仆的武器在主手槽即可读到。
+     */
+    public static int maxEnchantmentLevel(LivingEntity entity, Enchantment enchantment) {
+        if (entity == null || enchantment == null) {
+            return 0;
+        }
+        EquipmentSlot[] slots = EquipmentSlot.values();
+        int[] levels = new int[slots.length];
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack stack = entity.getItemBySlot(slots[i]);
+            if (!stack.isEnchanted()) {
+                continue;
             }
-            return sourceAttacker;
+            levels[i] = EnchantmentHelper.getItemEnchantmentLevel(enchantment, stack);
         }
-        if (target == null) {
-            return null;
-        }
-        LivingEntity credit = target.getKillCredit();
-        if (!(credit instanceof Player player) || CombatUtil.isNotValidAttackerPlayer(player)) {
-            return null;
-        }
-        return player;
+        return AmpRules.max(levels);
     }
 
-
-    public static int resolveAttackAmplificationLevel(Player player) {
-        if (player == null) {
+    public static int resolveAttackAmplificationLevel(Attacker attacker) {
+        if (attacker == null) {
             return 0;
         }
-        int live = getTotalEnchantmentLevelAllSlots(player, ModEnchantments.ATTACK_AMPLIFICATION.get());
-        return live;
+        return maxEnchantmentLevel(attacker.entity(), ModEnchantments.ATTACK_AMPLIFICATION.get());
     }
 
-
-    public static int resolveEnchantLevel(Player player, Enchantment enchantment) {
-        if (player == null || enchantment == null) {
+    public static int resolveEnchantLevel(Attacker attacker, Enchantment enchantment) {
+        if (attacker == null || enchantment == null) {
             return 0;
         }
-        ItemStack mainHand = player.getMainHandItem();
-        int level = mainHand.isEnchanted()
-                ? EnchantmentHelper.getItemEnchantmentLevel(enchantment, mainHand)
-                : 0;
-        if (level > 0) {
-            return level;
-        }
-        return getTotalEnchantmentLevelAllSlots(player, enchantment);
+        return maxEnchantmentLevel(attacker.entity(), enchantment);
     }
 
     public static int getTotalEnchantmentLevelOnArmor(Player player, Enchantment enchantment) {
         return sumEnchantmentLevel(player, enchantment, AmpConstants.ARMOR_SLOTS);
     }
 
-    public static int getEffectiveResourceAmplificationLevel(Player player, ItemStack stack) {
-        if (!isResourceAmplificationEnabled(player)) {
+    public static int getEffectiveResourceAmplificationLevel(ItemStack stack) {
+        if (!isResourceAmpEnabled(stack)) {
             return 0;
         }
-        if (stack == null || !stack.isEnchanted()) {
+        if (!stack.isEnchanted()) {
             return 0;
         }
         return EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.RESOURCE_AMPLIFICATION.get(), stack);
     }
 
 
-    public static int resolveResourceLevel(Player player, Entity directEntity) {
-        if (directEntity != null && TaczIntegration.isTaczBulletEntity(directEntity)) {
-            int level = TaczIntegration.getResourceAmplificationLevelFromBullet(directEntity);
-            return level > 0 && isResourceAmplificationEnabled(player) ? level : 0;
+    public static int resolveResourceLevel(Attacker attacker, Entity directEntity) {
+        if (attacker == null) {
+            return 0;
         }
-        return getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        if (directEntity != null && TaczIntegration.isTaczBulletEntity(directEntity)) {
+            return TaczIntegration.getResourceAmplificationLevelFromBullet(directEntity);
+        }
+        return getEffectiveResourceAmplificationLevel(attacker.entity().getMainHandItem());
+    }
+
+    public static int resolveResourceLevel(Player player, Entity directEntity) {
+        if (player == null) {
+            return 0;
+        }
+        return resolveResourceLevel(new Attacker(player, classifyAttacker(player)), directEntity);
     }
 
     public static boolean tryToggleResourceAmplificationByPlayer(Player player, ItemStack contextStack) {
@@ -259,8 +307,8 @@ public final class AmpSupport {
                 return false;
             }
             player.getPersistentData().putLong(RESOURCE_AMPLIFICATION_SWITCH_CD_TAG, now);
-            boolean newState = !isResourceAmplificationEnabled(player);
-            setResourceAmplificationEnabled(player, newState);
+            boolean newState = !isResourceAmpEnabled(contextStack);
+            setResourceAmpEnabled(contextStack, newState);
             player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), false);
             return true;
         }

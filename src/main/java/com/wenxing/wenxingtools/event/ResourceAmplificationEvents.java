@@ -2,6 +2,7 @@ package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.item.ModSpawnEggs;
+import com.wenxing.wenxingtools.util.AmpRules;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -49,27 +50,26 @@ public final class ResourceAmplificationEvents {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDrops(LivingDropsEvent event) {
-        Player player = AmpSupport.resolveKillAttribution(
-                AmpSupport.resolvePlayerAttacker(event.getSource()), event.getEntity());
+        Attacker attacker = AmpSupport.resolveKillAttacker(event.getSource(), event.getEntity());
         LATE_SWEEP_CANCELED.set(event.isCanceled());
         LATE_SWEEP_LEVEL.set(0);
 
         if (DEBUG_DROPS) {
             WenXingTools.LOGGER.info(
                     "[resource_amp] drops: entity={} canceled={} playerResolved={} drops={}",
-                    event.getEntity().getType(), event.isCanceled(), player != null, event.getDrops().size());
+                    event.getEntity().getType(), event.isCanceled(), attacker != null, event.getDrops().size());
         }
 
         // 取消掉落时不得合并/吞精魂
         if (event.isCanceled()) {
-            if (player != null) {
-                SpawnEggHarvest.dropSpawnEggHarvestLoot(event, player);
+            if (attacker != null) {
+                SpawnEggHarvest.dropSpawnEggHarvestLoot(event, attacker);
             }
             return;
         }
 
-        int resourceLevel = player != null
-                ? AmpSupport.resolveResourceLevel(player, event.getSource().getDirectEntity())
+        int resourceLevel = attacker != null
+                ? AmpSupport.resolveResourceLevel(attacker, event.getSource().getDirectEntity())
                 : 0;
         LATE_SWEEP_LEVEL.set(resourceLevel);
 
@@ -88,8 +88,8 @@ public final class ResourceAmplificationEvents {
             }
         }
 
-        if (player != null) {
-            SpawnEggHarvest.dropSpawnEggHarvestLoot(event, player);
+        if (attacker != null) {
+            SpawnEggHarvest.dropSpawnEggHarvestLoot(event, attacker);
         }
     }
 
@@ -201,16 +201,18 @@ public final class ResourceAmplificationEvents {
         if (event.isCanceled()) {
             return;
         }
-        Player player = event.getAttackingPlayer();
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        LivingEntity target = event.getEntity();
+        if (target == null) {
             return;
         }
-
-        Entity directEntity = null;
-        if (event.getEntity() != null && event.getEntity().getLastDamageSource() != null) {
-            directEntity = event.getEntity().getLastDamageSource().getDirectEntity();
+        Entity directEntity = target.getLastDamageSource() != null
+                ? target.getLastDamageSource().getDirectEntity()
+                : null;
+        Attacker attacker = AmpSupport.resolveKillAttacker(target.getLastDamageSource(), target);
+        if (attacker == null || !AmpRules.shouldAmplifyXp(attacker.kind())) {
+            return;
         }
-        int resourceLevel = AmpSupport.resolveResourceLevel(player, directEntity);
+        int resourceLevel = AmpSupport.resolveResourceLevel(attacker, directEntity);
         if (resourceLevel <= 0) {
             return;
         }
@@ -229,7 +231,10 @@ public final class ResourceAmplificationEvents {
 
             event.setDroppedExperience(0);
             if (granted > 0) {
-                grantExperienceSafely(player, granted);
+                Player realPlayer = attacker.asPlayer();
+                if (realPlayer != null) {
+                    grantExperienceSafely(realPlayer, granted);
+                }
             }
         } finally {
             RESOURCE_XP_CONTEXT.get().remove(event.getEntity());
@@ -251,7 +256,10 @@ public final class ResourceAmplificationEvents {
             return;
         }
         Player player = event.getPlayer();
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        if (player == null) {
+            return;
+        }
+        if (!AmpRules.shouldAmplifyXp(AmpSupport.classifyAttacker(player))) {
             return;
         }
         if (player.getAbilities().instabuild) {
@@ -261,7 +269,7 @@ public final class ResourceAmplificationEvents {
         if (exp <= 0) {
             return;
         }
-        int resourceLevel = AmpSupport.getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        int resourceLevel = AmpSupport.getEffectiveResourceAmplificationLevel(player.getMainHandItem());
         if (resourceLevel <= 0) {
             return;
         }
@@ -293,7 +301,7 @@ public final class ResourceAmplificationEvents {
         if (level == null || level.isClientSide || pos == null || state == null) {
             return;
         }
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        if (player == null) {
             return;
         }
         if (player.getAbilities().instabuild) {
@@ -303,7 +311,7 @@ public final class ResourceAmplificationEvents {
             return;
         }
         ItemStack useTool = (tool != null && !tool.isEmpty()) ? tool : player.getMainHandItem();
-        int resourceLevel = AmpSupport.getEffectiveResourceAmplificationLevel(player, useTool);
+        int resourceLevel = AmpSupport.getEffectiveResourceAmplificationLevel(useTool);
         if (resourceLevel <= 0) {
             return;
         }

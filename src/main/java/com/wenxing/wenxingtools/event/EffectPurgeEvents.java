@@ -49,8 +49,8 @@ public final class EffectPurgeEvents {
             return;
         }
 
-        Player player = AmpSupport.resolvePlayerAttacker(source);
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        Attacker attacker = AmpSupport.resolveAttacker(source);
+        if (attacker == null) {
             return;
         }
 
@@ -61,7 +61,7 @@ public final class EffectPurgeEvents {
         if (target instanceof Player) {
             return;
         }
-        int level = resolveEffectPurgeLevel(player);
+        int level = resolveEffectPurgeLevel(attacker);
         if (level <= 0) {
             return;
         }
@@ -70,8 +70,8 @@ public final class EffectPurgeEvents {
     }
 
 
-    public static int resolveEffectPurgeLevel(Player player) {
-        return AmpSupport.resolveEnchantLevel(player, ModEnchantments.EFFECT_PURGE.get());
+    public static int resolveEffectPurgeLevel(Attacker attacker) {
+        return AmpSupport.resolveEnchantLevel(attacker, ModEnchantments.EFFECT_PURGE.get());
     }
 
 

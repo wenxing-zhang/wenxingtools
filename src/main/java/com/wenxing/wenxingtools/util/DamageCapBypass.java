@@ -61,7 +61,7 @@ public final class DamageCapBypass {
     private static final Map<Class<?>, Field[]> HEALTH_FIELD_CACHE = new ConcurrentHashMap<>();
 
     /** 按可入账上限分片扣血，返回实际扣血量。不改事件金额、不叠伤。 */
-    public static float applyDamageCapAwareTrueDamage(Player attacker, LivingEntity target, float amount) {
+    public static float applyDamageCapAwareTrueDamage(LivingEntity attacker, LivingEntity target, float amount) {
         if (target == null || !(amount > 0.0f) || Float.isNaN(amount)) {
             return 0.0f;
         }
@@ -243,7 +243,7 @@ public final class DamageCapBypass {
     }
 
     /** 将目标血量压到 0（击杀路径）。尊重单次钳制，分片清空。 */
-    public static boolean forceReduceHealthToZero(Player attacker, LivingEntity target) {
+    public static boolean forceReduceHealthToZero(LivingEntity attacker, LivingEntity target) {
         if (target == null || target.isRemoved()) {
             return true;
         }
@@ -341,7 +341,7 @@ public final class DamageCapBypass {
     /** 伤害源枚举总档数：generic_kill → out_of_world → infinity_kill。 */
     public static final int BYPASS_SOURCE_COUNT = 3;
 
-    private static float drainViaGenericKillHurt(Player attacker, LivingEntity target, float amount) {
+    private static float drainViaGenericKillHurt(LivingEntity attacker, LivingEntity target, float amount) {
         if (!(amount > 0.0f) || !target.isAlive()) {
             return 0.0f;
         }
@@ -493,7 +493,7 @@ public final class DamageCapBypass {
     }
 
     /** GENERIC_KILL 玩家归属伤害源：无名者对 GENERIC_KILL 免钳，且保留击杀归属。 */
-    public static DamageSource createGenericKillSource(Player attacker, LivingEntity target) {
+    public static DamageSource createGenericKillSource(LivingEntity attacker, LivingEntity target) {
         return sourceFor(attacker, target, DamageTypes.GENERIC_KILL);
     }
 
@@ -501,7 +501,7 @@ public final class DamageCapBypass {
      * 伤害源枚举：部分目标按 {@code DamageType} 白名单免钳，换源即可绕过。
      * <p>顺序固定为 generic_kill（已知对无名者免钳）→ out_of_world → 本 mod infinity_kill。</p>
      */
-    public static DamageSource createBypassSource(Player attacker, LivingEntity target, int index) {
+    public static DamageSource createBypassSource(LivingEntity attacker, LivingEntity target, int index) {
         return switch (index) {
             case 0 -> sourceFor(attacker, target, DamageTypes.GENERIC_KILL);
             case 1 -> sourceFor(attacker, target, CombatUtil.VANILLA_OUT_OF_WORLD);
@@ -510,7 +510,7 @@ public final class DamageCapBypass {
         };
     }
 
-    private static DamageSource sourceFor(Player attacker, LivingEntity target,
+    private static DamageSource sourceFor(LivingEntity attacker, LivingEntity target,
                                           net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> typeKey) {
         try {
             net.minecraft.world.level.Level level = attacker != null ? attacker.level()

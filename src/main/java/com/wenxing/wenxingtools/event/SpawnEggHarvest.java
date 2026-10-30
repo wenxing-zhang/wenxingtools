@@ -5,9 +5,7 @@ import com.wenxing.wenxingtools.item.ModSpawnEggs;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraftforge.event.entity.living.LivingDropsEvent;
 
 final class SpawnEggHarvest {
@@ -16,9 +14,8 @@ final class SpawnEggHarvest {
     }
 
 
-    static void dropSpawnEggHarvestLoot(LivingDropsEvent event, Player player) {
-        int level = EnchantmentHelper.getItemEnchantmentLevel(
-                ModEnchantments.SPAWN_EGG_HARVEST.get(), player.getMainHandItem());
+    static void dropSpawnEggHarvestLoot(LivingDropsEvent event, Attacker attacker) {
+        int level = AmpSupport.resolveEnchantLevel(attacker, ModEnchantments.SPAWN_EGG_HARVEST.get());
         if (level <= 0) {
             return;
         }

@@ -2,6 +2,7 @@ package com.wenxing.wenxingtools.integration;
 
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.event.AmpSupport;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -105,6 +106,9 @@ public class TaczIntegration {
         }
         ItemStack gunStack = findGunStackFromShooter(shooter);
         if (gunStack.isEmpty()) {
+            return true;
+        }
+        if (!AmpSupport.isResourceAmpEnabled(gunStack)) {
             return true;
         }
         int resourceLevel = EnchantmentHelper.getItemEnchantmentLevel(ModEnchantments.RESOURCE_AMPLIFICATION.get(), gunStack);

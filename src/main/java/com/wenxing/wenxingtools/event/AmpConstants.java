@@ -57,7 +57,12 @@ public final class AmpConstants {
     public static final int POTION_AMPLIFICATION_SAFE_DURATION_CAP = 48 * 72_000;
 
 
+    /** 旧载体：玩家 persistentData 的开关标记。1.2.9 起开关迁到物品 NBT，重初始化时清理此键。 */
     public static final String RESOURCE_AMPLIFICATION_PLAYER_TAG = WenXingTools.MODID + ":resource_amp_enabled";
+
+
+    /** 新载体：物品 NBT 的开关标记。开关跟着物品走，女仆与假玩家手持该物品即可生效。 */
+    public static final String RESOURCE_AMPLIFICATION_ITEM_TAG = WenXingTools.MODID + ":resource_amp_enabled";
 
 
     public static final int RESOURCE_AMPLIFICATION_SWITCH_COOLDOWN_MS = 250;

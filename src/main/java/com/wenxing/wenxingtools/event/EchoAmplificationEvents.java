@@ -46,11 +46,8 @@ public final class EchoAmplificationEvents {
             return;
         }
 
-        Player player = AmpSupport.resolvePlayerAttacker(event.getSource());
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
-            return;
-        }
-        if (!(player instanceof ServerPlayer serverPlayer)) {
+        Attacker attacker = AmpSupport.resolveAttacker(event.getSource());
+        if (attacker == null) {
             return;
         }
 
@@ -65,25 +62,25 @@ public final class EchoAmplificationEvents {
             return;
         }
 
-        int level = resolveEchoAmplificationLevel(player);
+        int level = resolveEchoAmplificationLevel(attacker);
         if (level <= 0) {
             return;
         }
 
-        float attackPower = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+        float attackPower = (float) attacker.entity().getAttributeValue(Attributes.ATTACK_DAMAGE);
         if (!(attackPower > 0.0f) || Float.isNaN(attackPower)) {
             return;
         }
 
-        applyEchoVoidDamage(serverPlayer, target, level, attackPower);
+        applyEchoVoidDamage(attacker, target, level, attackPower);
     }
 
-    static int resolveEchoAmplificationLevel(Player player) {
-        return AmpSupport.resolveEnchantLevel(player, ModEnchantments.ECHO_AMPLIFICATION.get());
+    static int resolveEchoAmplificationLevel(Attacker attacker) {
+        return AmpSupport.resolveEnchantLevel(attacker, ModEnchantments.ECHO_AMPLIFICATION.get());
     }
 
 
-    private static void applyEchoVoidDamage(ServerPlayer player, LivingEntity target, int level, float attackPower) {
+    private static void applyEchoVoidDamage(Attacker attacker, LivingEntity target, int level, float attackPower) {
         if (ECHO_CHAIN_RUNNING.get()) {
             return;
         }
@@ -93,10 +90,15 @@ public final class EchoAmplificationEvents {
         }
         int hitCount = (int) Math.min(hits, MAX_HITS);
 
-
-        DamageSource voidSource = CombatUtil.createVanillaOutOfWorldSource(player);
+        LivingEntity attackerEntity = attacker.entity();
+        DamageSource voidSource = attackerEntity instanceof ServerPlayer sp
+                ? CombatUtil.createVanillaOutOfWorldSource(sp)
+                : null;
         if (voidSource == null) {
-            voidSource = player.damageSources().playerAttack(player);
+            voidSource = CombatUtil.createVanillaOutOfWorldSource(attackerEntity.level());
+        }
+        if (voidSource == null) {
+            voidSource = attackerEntity.damageSources().mobAttack(attackerEntity);
         }
 
         ECHO_CHAIN_RUNNING.set(true);
@@ -118,7 +120,7 @@ public final class EchoAmplificationEvents {
 
 
         if (!target.isRemoved() && target.isAlive()) {
-            int purgeLevel = EffectPurgeEvents.resolveEffectPurgeLevel(player);
+            int purgeLevel = EffectPurgeEvents.resolveEffectPurgeLevel(attacker);
             if (purgeLevel > 0) {
                 EffectPurgeSupport.applyOnHit(target, target.level().getGameTime(), purgeLevel);
             } else if (EffectPurgeSupport.isSuppressed(target)) {

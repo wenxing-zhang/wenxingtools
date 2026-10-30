@@ -8,7 +8,6 @@ import com.wenxing.wenxingtools.util.DropWindowUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
@@ -69,12 +68,11 @@ public final class DropsJoinInterception {
         if (!(entity.level() instanceof ServerLevel serverLevel)) {
             return;
         }
-        Player player = AmpSupport.resolveKillAttribution(
-                AmpSupport.resolvePlayerAttacker(event.getSource()), entity);
-        if (player == null) {
+        Attacker attacker = AmpSupport.resolveKillAttacker(event.getSource(), entity);
+        if (attacker == null) {
             return;
         }
-        int resourceLevel = AmpSupport.resolveResourceLevel(player, event.getSource().getDirectEntity());
+        int resourceLevel = AmpSupport.resolveResourceLevel(attacker, event.getSource().getDirectEntity());
         if (resourceLevel <= 0) {
             return;
         }

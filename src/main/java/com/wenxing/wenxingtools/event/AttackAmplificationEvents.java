@@ -1,6 +1,7 @@
 package com.wenxing.wenxingtools.event;
 
 import com.wenxing.wenxingtools.WenXingTools;
+import com.wenxing.wenxingtools.util.AmpRules;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.DamageCapBypass;
 import com.wenxing.wenxingtools.util.HealthStateProbe;
@@ -86,8 +87,8 @@ public final class AttackAmplificationEvents {
             return;
         }
 
-        Player player = AmpSupport.resolvePlayerAttacker(event.getSource());
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        Attacker attacker = AmpSupport.resolveAttacker(event.getSource());
+        if (attacker == null) {
             return;
         }
 
@@ -102,18 +103,19 @@ public final class AttackAmplificationEvents {
             return;
         }
 
-        int attackLevel = AmpSupport.resolveAttackAmplificationLevel(player);
+        int attackLevel = AmpSupport.resolveAttackAmplificationLevel(attacker);
         if (attackLevel > 0) {
-            applyAttackAmplificationTrueDamage(player, target, attackLevel, event);
+            applyAttackAmplificationTrueDamage(attacker, target, attackLevel, event);
         }
     }
 
-    private static void applyAttackAmplificationTrueDamage(Player player, LivingEntity target, int level, LivingHurtEvent event) {
+    private static void applyAttackAmplificationTrueDamage(Attacker attacker, LivingEntity target, int level, LivingHurtEvent event) {
         if (ATTACK_AMP_RUNNING.get()) {
             return;
         }
         ATTACK_AMP_RUNNING.set(true);
         try {
+            LivingEntity attackerEntity = attacker.entity();
             float percentage = (level * AmpConstants.PERCENT_PER_LEVEL) / 100.0f;
             float percentDamage = target.getMaxHealth() * percentage;
             if (!(percentDamage > 0.0f) || Float.isNaN(percentDamage)) {
@@ -129,37 +131,37 @@ public final class AttackAmplificationEvents {
             target.hurtTime = 0;
 
             if (healthBefore > percentDamage) {
-                float dealt = applyBypassTrueDamage(player, target, percentDamage);
+                float dealt = applyBypassTrueDamage(attackerEntity, target, percentDamage);
                 if (dealt > 0.0f) {
-                    healAttacker(player, dealt);
+                    healAttacker(attacker, dealt);
                 } else {
                     foldIntoEvent(event, percentDamage);
-                    healAttacker(player, percentDamage);
+                    healAttacker(attacker, percentDamage);
                 }
             } else {
                 float leftover = Math.max(0.0f, percentDamage - healthBefore);
                 float dealt = 0.0f;
-                if (player instanceof ServerPlayer sp) {
+                if (attackerEntity instanceof ServerPlayer sp) {
                     float healthBeforeKill = target.getHealth();
                     CombatUtil.applyDirectKill(sp, target);
                     if (target.isDeadOrDying() || target.isRemoved() || target.getHealth() <= 0.0f) {
                         dealt = healthBeforeKill;
                     } else {
-                        dealt = applyBypassTrueDamage(player, target, percentDamage);
+                        dealt = applyBypassTrueDamage(attackerEntity, target, percentDamage);
                         if (dealt <= 0.0f) {
                             foldIntoEvent(event, percentDamage);
                             dealt = percentDamage;
                         }
                     }
                 } else {
-                    dealt = applyBypassTrueDamage(player, target, percentDamage);
+                    dealt = applyBypassTrueDamage(attackerEntity, target, percentDamage);
                     if (dealt <= 0.0f) {
                         foldIntoEvent(event, percentDamage);
                         dealt = percentDamage;
                     }
                 }
                 if (dealt > 0.0f) {
-                    healAttacker(player, dealt + leftover);
+                    healAttacker(attacker, dealt + leftover);
                 }
             }
         } finally {
@@ -183,7 +185,7 @@ public final class AttackAmplificationEvents {
      * 旁路真伤：优先通用伤害上限旁路（分片 setHealth / 无钳 setter / GENERIC_KILL），
      * 兼容 Goety:Awaken 哞菇巨兽、无名者等单次伤害钳制；再降级 LM 等自定义血量通道。
      */
-    private static float applyBypassTrueDamage(Player player, LivingEntity target, float amount) {
+    private static float applyBypassTrueDamage(LivingEntity attacker, LivingEntity target, float amount) {
         if (!(amount > 0.0f) || !target.isAlive()) {
             return 0.0f;
         }
@@ -194,7 +196,7 @@ public final class AttackAmplificationEvents {
         }
 
         // 0) 通用伤害上限旁路（分片扣满，不受单次 cap/冷却限制）
-        float capAwareLost = DamageCapBypass.applyDamageCapAwareTrueDamage(player, target, amount);
+        float capAwareLost = DamageCapBypass.applyDamageCapAwareTrueDamage(attacker, target, amount);
         if (capAwareLost > 0.0f) {
             return capAwareLost;
         }
@@ -211,7 +213,7 @@ public final class AttackAmplificationEvents {
         }
 
         // 2) 反射 addDamage / totalDamageTaken
-        DamageSource source = resolveBypassSource(player);
+        DamageSource source = resolveBypassSource(attacker);
         AddDamageAccessor addDamage = resolveAddDamageAccessor(target.getClass());
         if (addDamage != null && source != null) {
             try {
@@ -406,17 +408,24 @@ public final class AttackAmplificationEvents {
         return null;
     }
 
-    private static DamageSource resolveBypassSource(Player player) {
-        if (player instanceof ServerPlayer sp) {
+    private static DamageSource resolveBypassSource(LivingEntity attacker) {
+        if (attacker instanceof ServerPlayer sp) {
             return CombatUtil.createInfinityKillSource(sp);
         }
-        return player.damageSources().playerAttack(player);
+        return attacker.damageSources().mobAttack(attacker);
     }
 
-    private static void healAttacker(Player player, float amount) {
-        if (!(amount > 0.0f) || !player.isAlive()) {
+    private static void healAttacker(Attacker attacker, float amount) {
+        if (!(amount > 0.0f)) {
             return;
         }
-        player.setHealth(Math.min(player.getMaxHealth(), player.getHealth() + amount));
+        if (!AmpRules.shouldHeal(attacker.kind())) {
+            return;
+        }
+        LivingEntity entity = attacker.entity();
+        if (!entity.isAlive()) {
+            return;
+        }
+        entity.setHealth(Math.min(entity.getMaxHealth(), entity.getHealth() + amount));
     }
 }
