@@ -39,19 +39,10 @@ public final class EnchantUtil {
         return getLevel(key, player.getItemBySlot(slot), player);
     }
 
-    /** 全装备槽附魔等级合计。 */
-    public static int getTotalLevelAllSlots(ResourceKey<Enchantment> key, Player player) {
-        int total = 0;
-        for (EquipmentSlot slot : EquipmentSlot.values()) {
-            total += getLevelOnPlayerSlot(key, player, slot);
-        }
-        return total;
-    }
-
     /**
      * 装备槽（主手 / 副手 / 护甲）附魔等级取最大。
      * <p>
-     * 与 {@link #getTotalLevelAllSlots} 的区别是「取最大」而非「求和」：跨槽累加会让双持同名附魔白拿双倍效果，
+     * 取最大而非求和：跨槽累加会让双持同名附魔白拿双倍效果，
      * 也与 1.20.1 姊妹端口径一致。对生物而言这些槽位就是它的装备栏，女仆的武器在主手槽即可读到。
      * <p>
      * holder 只解析一次，避免每个槽位各查一次注册表。
