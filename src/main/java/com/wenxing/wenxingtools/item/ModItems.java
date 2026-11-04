@@ -1,9 +1,11 @@
 package com.wenxing.wenxingtools.item;
 
+import com.mojang.serialization.Codec;
 import com.wenxing.wenxingtools.WenXingTools;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -32,6 +34,17 @@ public final class ModItems {
             DATA_COMPONENTS.registerComponentType("generic_egg_entity",
                     builder -> builder.persistent(ResourceLocation.CODEC)
                             .networkSynchronized(ResourceLocation.STREAM_CODEC));
+
+    /**
+     * 资源增幅附魔开关：跟着物品走，女仆与科技方块（假玩家）手持该物品即可生效。
+     * <p>
+     * 用 Data Components 而不是 NBT 标签：1.21 的组件是权威载体，且 {@code networkSynchronized} 让开关随
+     * 物品同步到客户端——手持粒子不需要额外网络包。缺省（无该组件）即「关闭」。
+     */
+    public static final Supplier<DataComponentType<Boolean>> RESOURCE_AMP_ENABLED =
+            DATA_COMPONENTS.registerComponentType("resource_amp_enabled",
+                    builder -> builder.persistent(Codec.BOOL)
+                            .networkSynchronized(ByteBufCodecs.BOOL));
 
     public static final DeferredItem<WenxingPickaxeItem> WENXING_PICKAXE =
             ITEMS.register("wenxing_pickaxe", WenxingPickaxeItem::new);

@@ -63,7 +63,7 @@ public final class DamageCapBypass {
     private static final Map<Class<?>, Optional<Field>> ACCUMULATED_FIELD_CACHE = new ConcurrentHashMap<>();
 
     /** 按可入账上限分片扣血，返回实际扣血量。不改事件金额、不叠伤。 */
-    public static float applyDamageCapAwareTrueDamage(Player attacker, LivingEntity target, float amount) {
+    public static float applyDamageCapAwareTrueDamage(LivingEntity attacker, LivingEntity target, float amount) {
         if (target == null || !(amount > 0.0f) || Float.isNaN(amount)) {
             return 0.0f;
         }
@@ -230,7 +230,7 @@ public final class DamageCapBypass {
     }
 
     /** 将目标血量压到 0（击杀路径）。尊重单次钳制，分片清空。 */
-    public static boolean forceReduceHealthToZero(Player attacker, LivingEntity target) {
+    public static boolean forceReduceHealthToZero(LivingEntity attacker, LivingEntity target) {
         if (target == null || target.isRemoved()) {
             return true;
         }
@@ -331,7 +331,7 @@ public final class DamageCapBypass {
     /** 伤害源枚举总档数：generic_kill → out_of_world → infinity_kill。 */
     public static final int BYPASS_SOURCE_COUNT = 3;
 
-    private static float drainViaGenericKillHurt(Player attacker, LivingEntity target, float amount) {
+    private static float drainViaGenericKillHurt(LivingEntity attacker, LivingEntity target, float amount) {
         if (!(amount > 0.0f) || !target.isAlive()) {
             return 0.0f;
         }
@@ -476,7 +476,7 @@ public final class DamageCapBypass {
      * GENERIC_KILL 玩家归属伤害源。无名者对
      * {@code BYPASSES_INVULNERABILITY + GENERIC_KILL} 放行全额；保留玩家实体以便击杀归属。
      */
-    public static DamageSource createGenericKillSource(Player attacker, LivingEntity target) {
+    public static DamageSource createGenericKillSource(LivingEntity attacker, LivingEntity target) {
         try {
             if (attacker instanceof ServerPlayer sp) {
                 return sp.damageSources().source(DamageTypes.GENERIC_KILL, sp);
@@ -499,9 +499,18 @@ public final class DamageCapBypass {
      * 后两档复用 {@link CombatUtil} 的集中构造点（与回响 / 净化 / 必杀链同一路径），
      * 不在此另造一份——{@code infinity_kill} 注册或降级策略改动时只需改一处。</p>
      */
-    public static DamageSource createBypassSource(Player attacker, LivingEntity target, int index) {
+    public static DamageSource createBypassSource(LivingEntity attacker, LivingEntity target, int index) {
+        if (attacker == null) {
+            return createGenericKillSource(null, target);
+        }
         if (!(attacker instanceof ServerPlayer sp)) {
-            return null;
+            // 生物没有 infinity_kill 的归属语义：generic_kill 与无归属虚空仍可用，最后一档退回 mobAttack
+            return switch (index) {
+                case 0 -> createGenericKillSource(attacker, target);
+                case 1 -> CombatUtil.createVanillaOutOfWorldSource(attacker.level());
+                case 2 -> attacker.damageSources().mobAttack(attacker);
+                default -> null;
+            };
         }
         return switch (index) {
             case 0 -> createGenericKillSource(attacker, target);

@@ -4,6 +4,8 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.entity.MultiStackItemEntity;
 import com.wenxing.wenxingtools.integration.MalumSpiritAmplification;
 import com.wenxing.wenxingtools.item.AutoSpawnEggs;
+import com.wenxing.wenxingtools.util.Attacker;
+import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.DropWindowUtil;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -69,13 +71,12 @@ public final class DropsJoinInterception {
         if (!(entity.level() instanceof ServerLevel serverLevel)) {
             return;
         }
-        Player player = ResourceAmplificationHandler.resolveKillAttribution(
-                ResourceAmplificationHandler.resolvePlayerAttacker(event.getSource()), entity);
-        if (player == null) {
+        Attacker attacker = CombatUtil.resolveKillAttacker(event.getSource(), entity);
+        if (attacker == null) {
             return;
         }
         int resourceLevel = ResourceAmplificationHandler.resolveResourceLevel(
-                player, event.getSource().getDirectEntity());
+                attacker, event.getSource().getDirectEntity());
         if (resourceLevel <= 0) {
             return;
         }

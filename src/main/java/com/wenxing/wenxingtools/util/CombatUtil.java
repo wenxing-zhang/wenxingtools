@@ -75,6 +75,63 @@ public final class CombatUtil {
         return null;
     }
 
+    /**
+     * 解析攻击者：伤害源里的直接实体，或弹射物的持有者；接受任意生物（女仆、其他模组的召唤物、假玩家）。
+     * <p>
+     * 与 {@link #resolvePlayerAttacker} 的差别：这里不做玩家身份校验，附魔链路用它；需要真实玩家身份的
+     * 权限 / 无敌 / 必杀特性路径仍用 {@code resolvePlayerAttacker} + {@code isNotValidAttackerPlayer}。
+     */
+    public static Attacker resolveAttacker(DamageSource source) {
+        LivingEntity resolved = resolveAttackerEntity(source);
+        return resolved == null ? null : new Attacker(resolved, classifyAttacker(resolved));
+    }
+
+    /**
+     * 击杀归属：伤害源解析不出时回退目标自记的击杀者（{@link LivingEntity#getKillCredit()}）。
+     * <p>
+     * <b>只用于死亡与掉落链。</b>命中链不得回退——否则「玩家打过、别的实体收尾」的伤害会被算成玩家攻击，
+     * 攻击增幅与回响会在错误来源上多打一次真伤。
+     */
+    public static Attacker resolveKillAttacker(DamageSource source, LivingEntity target) {
+        Attacker attacker = resolveAttacker(source);
+        if (attacker != null) {
+            return attacker;
+        }
+        LivingEntity credit = target == null ? null : target.getKillCredit();
+        return credit == null ? null : new Attacker(credit, classifyAttacker(credit));
+    }
+
+    private static LivingEntity resolveAttackerEntity(DamageSource source) {
+        if (source == null) {
+            return null;
+        }
+        if (source.getEntity() instanceof LivingEntity living) {
+            return living;
+        }
+        if (source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile projectile
+                && projectile.getOwner() instanceof LivingEntity owner) {
+            return owner;
+        }
+        return null;
+    }
+
+    /**
+     * 真实玩家判据：能在这个 ServerPlayer 自己的服务端玩家列表里查到它。
+     * <p>
+     * 不用 {@code connection == null}——NeoForge 的假玩家会给自己塞一个空连接，据此判定会把假玩家漏成真实玩家；
+     * 也不用 {@code instanceof FakePlayer}——模组自建的 ServerPlayer 子类同样应算假玩家。
+     */
+    public static AttackerKind classifyAttacker(LivingEntity entity) {
+        if (!(entity instanceof Player player)) {
+            return AttackerKind.MOB;
+        }
+        boolean inPlayerList = false;
+        if (player instanceof ServerPlayer serverPlayer && serverPlayer.getServer() != null) {
+            inPlayerList = serverPlayer.getServer().getPlayerList().getPlayer(player.getUUID()) == player;
+        }
+        return AmpRules.classify(true, inPlayerList);
+    }
+
     public static float getMaxHealth(LivingEntity entity) {
         if (entity == null) {
             return DEFAULT_MAX_HEALTH;
@@ -101,7 +158,7 @@ public final class CombatUtil {
      * 兼容 Goety:Awaken 哞菇巨兽、无名者等单次伤害钳制目标；再降级 LM 等自定义血量通道。
      * 返回实际扣血量（getHealth 前后差，供吸血）。
      */
-    public static float applyBypassTrueDamage(ServerPlayer attacker, LivingEntity target, float amount) {
+    public static float applyBypassTrueDamage(LivingEntity attacker, LivingEntity target, float amount) {
         if (attacker == null || target == null || !(amount > 0.0f) || Float.isNaN(amount)) {
             return 0.0f;
         }
@@ -132,9 +189,9 @@ public final class CombatUtil {
         }
 
         // 2) 反射 addDamage / totalDamageTaken：invoke 后对比 getHealth
-        DamageSource source = createInfinityKillSource(attacker);
+        DamageSource source = resolveBypassSource(attacker);
         if (source == null) {
-            source = attacker.damageSources().playerAttack(attacker);
+            return 0.0f;
         }
         ThirdPartyDamageAccess access = thirdPartyAccess(target.getClass());
         if (tryReflectThirdPartyDamage(target, amount, source, access)) {
@@ -156,6 +213,18 @@ public final class CombatUtil {
         target.hurt(source, amount);
         after = target.getHealth();
         return Math.max(0.0f, before - after);
+    }
+
+    /**
+     * 旁路真伤用的伤害源：玩家走 infinity_kill（保留击杀归属），生物走 mobAttack。
+     * <p>生物没有 infinity_kill 的归属语义，但旁路真伤只需要一个能让目标掉血的来源。
+     */
+    private static DamageSource resolveBypassSource(LivingEntity attacker) {
+        if (attacker instanceof ServerPlayer serverPlayer) {
+            DamageSource source = createInfinityKillSource(serverPlayer);
+            return source != null ? source : serverPlayer.damageSources().playerAttack(serverPlayer);
+        }
+        return attacker == null ? null : attacker.damageSources().mobAttack(attacker);
     }
 
     /** 第三方自定义血量旁路：addDamage(float/double[, DamageSource]) 或 totalDamageTaken 累加。失败静默。 */

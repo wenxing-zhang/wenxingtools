@@ -7,6 +7,9 @@ import com.wenxing.wenxingtools.entity.MultiStackItemEntity;
 import com.wenxing.wenxingtools.integration.MalumSpiritAmplification;
 import com.wenxing.wenxingtools.integration.TaczIntegration;
 import com.wenxing.wenxingtools.item.AutoSpawnEggs;
+import com.wenxing.wenxingtools.item.ModItems;
+import com.wenxing.wenxingtools.util.AmpRules;
+import com.wenxing.wenxingtools.util.Attacker;
 import com.wenxing.wenxingtools.util.CombatReentry;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import com.wenxing.wenxingtools.util.DropStackUtil;
@@ -15,12 +18,12 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -33,7 +36,6 @@ import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
 import net.neoforged.neoforge.event.level.BlockDropsEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -48,7 +50,8 @@ import java.util.Map;
 public final class ResourceAmplificationHandler {
     private ResourceAmplificationHandler() {}
 
-    public static final String RESOURCE_AMPLIFICATION_PLAYER_TAG = WenXingTools.MODID + ":resource_amp_enabled";
+    /** 旧载体（玩家 persistentData）：开关已迁到物品组件，重初始化时清理此键。 */
+    public static final String LEGACY_RESOURCE_AMPLIFICATION_PLAYER_TAG = WenXingTools.MODID + ":resource_amp_enabled";
     private static final String RESOURCE_AMPLIFICATION_SWITCH_CD_TAG = WenXingTools.MODID + ":resource_amp_switch_cd";
 
     /**
@@ -72,22 +75,32 @@ public final class ResourceAmplificationHandler {
     /** 方块破坏额外掉落的倍率系数：不可堆叠物品每级 ×10（对齐 Forge 1.20.1） */
     private static final int RESOURCE_FACTOR_UNSTACKABLE_PER_LEVEL = 10;
 
-    public static boolean isResourceAmplificationEnabled(Player player) {
-        if (player == null) {
+    /** 开关读物品：跟着物品走，女仆与科技方块（假玩家）手持即可生效，不再依赖玩家身上的状态。 */
+    public static boolean isResourceAmpEnabled(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
             return false;
         }
-        var data = player.getPersistentData();
-        if (!data.contains(RESOURCE_AMPLIFICATION_PLAYER_TAG)) {
-            return false;
-        }
-        return data.getBoolean(RESOURCE_AMPLIFICATION_PLAYER_TAG);
+        return stack.getOrDefault(ModItems.RESOURCE_AMP_ENABLED.get(), Boolean.FALSE);
     }
 
-    public static void setResourceAmplificationEnabled(Player player, boolean enabled) {
-        if (player == null) {
+    /** 写开关组件；缺省即关闭，因此开启时写入、关闭时移除，不给物品留冗余组件。 */
+    public static void setResourceAmpEnabled(ItemStack stack, boolean enabled) {
+        if (stack == null || stack.isEmpty()) {
             return;
         }
-        player.getPersistentData().putBoolean(RESOURCE_AMPLIFICATION_PLAYER_TAG, enabled);
+        if (enabled) {
+            stack.set(ModItems.RESOURCE_AMP_ENABLED.get(), Boolean.TRUE);
+        } else {
+            stack.remove(ModItems.RESOURCE_AMP_ENABLED.get());
+        }
+    }
+
+    /** 旧存档清理：开关已不再读玩家 persistentData，登录/重生/切维时移除残留键。 */
+    public static void clearLegacyPlayerSwitchTag(Player player) {
+        if (player == null || player.level().isClientSide) {
+            return;
+        }
+        player.getPersistentData().remove(LEGACY_RESOURCE_AMPLIFICATION_PLAYER_TAG);
     }
 
     public static int computeResourceFactor(int level) {
@@ -124,76 +137,37 @@ public final class ResourceAmplificationHandler {
                 .withStyle(color);
     }
 
-    private static int getEffectiveResourceAmplificationLevel(Player player, ItemStack stack) {
-        if (!isResourceAmplificationEnabled(player) || stack == null || stack.isEmpty()) {
+    private static int getEffectiveResourceAmplificationLevel(ItemStack stack, LivingEntity context) {
+        if (stack == null || stack.isEmpty() || !isResourceAmpEnabled(stack)) {
             return 0;
         }
-        return EnchantUtil.getLevel(ModEnchantments.RESOURCE_AMPLIFICATION, stack, player);
+        return EnchantUtil.getLevel(ModEnchantments.RESOURCE_AMPLIFICATION, stack, context);
     }
 
     public static int resolveMainHandResourceLevel(Player player) {
-        return getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        return player == null ? 0 : getEffectiveResourceAmplificationLevel(player.getMainHandItem(), player);
+    }
+
+    public static int resolveResourceLevel(Attacker attacker, Entity directEntity) {
+        if (attacker == null) {
+            return 0;
+        }
+        // 枪械：子弹上的等级已按开枪时的枪物品开关写入（TaczIntegration 侧拦），此处直接采信
+        if (directEntity != null) {
+            int bulletLevel = TaczIntegration.getResourceAmplificationLevelFromBullet(directEntity);
+            if (bulletLevel > 0) {
+                return bulletLevel;
+            }
+        }
+        LivingEntity entity = attacker.entity();
+        return getEffectiveResourceAmplificationLevel(entity.getMainHandItem(), entity);
     }
 
     public static int resolveResourceLevel(Player player, Entity directEntity) {
-        if (directEntity != null) {
-            int level = TaczIntegration.getResourceAmplificationLevelFromBullet(directEntity);
-            if (level > 0 && isResourceAmplificationEnabled(player)) {
-                return level;
-            }
+        if (player == null) {
+            return 0;
         }
-        return getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
-    }
-
-    /**
-     * 伤害源 → 玩家攻击者：直接玩家 / 弹射物持有者 / 枪械子弹持有者。
-     * <p>
-     * 1.21.1 的 {@code DamageSource#getEntity()} 只在伤害源构造时带了攻击者才非空；远程武器与枪械
-     * 可能只把持有者挂在弹射物上（或完全不挂），故逐级回退。
-     */
-    public static Player resolvePlayerAttacker(@Nullable DamageSource source) {
-        if (source == null) {
-            return null;
-        }
-        if (source.getEntity() instanceof Player player && !CombatUtil.isNotValidAttackerPlayer(player)) {
-            return player;
-        }
-        Entity direct = source.getDirectEntity();
-        if (direct instanceof Projectile projectile && projectile.getOwner() instanceof Player owner
-                && !CombatUtil.isNotValidAttackerPlayer(owner)) {
-            return owner;
-        }
-        if (TaczIntegration.isTaczBulletEntity(direct)
-                && direct instanceof Projectile projectile
-                && projectile.getOwner() instanceof Player owner
-                && !CombatUtil.isNotValidAttackerPlayer(owner)) {
-            return owner;
-        }
-        return null;
-    }
-
-    /**
-     * 击杀归属：伤害源里解析不到玩家时，回退到实体自记的击杀者（{@link LivingEntity#getKillCredit()}）。
-     * <p>
-     * 第三方用「无来源实体」的伤害收尾时（如 {@code damageSources().magic()}，{@code getEntity()} 与
-     * {@code getDirectEntity()} 均为 null），伤害源中没有玩家可识别；但此前命中已经记下
-     * {@code lastHurtByPlayer}。不回退的后果是资源增幅倍率归零、掠蛋整段跳过。
-     * <p>
-     * 本回退只用于死亡掉落链。命中链（攻击增幅 / 回响 / 净化 / 战斗属性判定）仍只认伤害源——
-     * 那里用同一回退会把「玩家打过、别的实体收尾」的伤害误算成玩家攻击。
-     */
-    public static Player resolveKillAttribution(Player sourceAttacker, LivingEntity target) {
-        if (sourceAttacker != null) {
-            return CombatUtil.isNotValidAttackerPlayer(sourceAttacker) ? null : sourceAttacker;
-        }
-        if (target == null) {
-            return null;
-        }
-        LivingEntity credit = target.getKillCredit();
-        if (!(credit instanceof Player player) || CombatUtil.isNotValidAttackerPlayer(player)) {
-            return null;
-        }
-        return player;
+        return resolveResourceLevel(new Attacker(player, CombatUtil.classifyAttacker(player)), directEntity);
     }
 
     public static boolean tryToggleResourceAmplificationByPlayer(Player player, ItemStack contextStack) {
@@ -216,30 +190,37 @@ public final class ResourceAmplificationHandler {
             return false;
         }
         player.getPersistentData().putLong(RESOURCE_AMPLIFICATION_SWITCH_CD_TAG, now);
-        boolean newState = !isResourceAmplificationEnabled(player);
-        setResourceAmplificationEnabled(player, newState);
+        boolean newState = !isResourceAmpEnabled(contextStack);
+        setResourceAmpEnabled(contextStack, newState);
         player.displayClientMessage(buildResourceAmplificationToggleMessage(newState), false);
+        syncStackToClient(player);
         return true;
+    }
+
+    /** 组件改动不会自动下发：广播一次容器变化，让客户端手持粒子与服务端开关一致。 */
+    private static void syncStackToClient(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.inventoryMenu.broadcastChanges();
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onLivingDrops(LivingDropsEvent event) {
         // 供事件之后的补扫读取：本次死亡的增幅等级。每次死亡都重置，未经过本监听器则保持 null
         LATE_SWEEP_LEVEL.set(0);
-        Player player = resolveKillAttribution(
-                resolvePlayerAttacker(event.getSource()), event.getEntity());
+        Attacker attacker = CombatUtil.resolveKillAttacker(event.getSource(), event.getEntity());
 
         // 取消掉落时不得合并/吞精魂（drops 不会生成，discard 会丢物）
         if (event.isCanceled()) {
-            if (player != null) {
-                SpawnEggHarvest.dropSpawnEggHarvestLoot(event, player);
+            if (attacker != null) {
+                SpawnEggHarvest.dropSpawnEggHarvestLoot(event, attacker);
             }
             return;
         }
 
         // 死亡必合并：无增幅也按「物品+组件」收成单 MultiStack
-        int resourceLevel = player != null
-                ? resolveResourceLevel(player, event.getSource().getDirectEntity())
+        int resourceLevel = attacker != null
+                ? resolveResourceLevel(attacker, event.getSource().getDirectEntity())
                 : 0;
         LATE_SWEEP_LEVEL.set(resourceLevel);
 
@@ -257,8 +238,8 @@ public final class ResourceAmplificationHandler {
         }
 
         // 掠蛋在倍增/合并之后追加，数量不受资源增幅影响，顺序确定
-        if (player != null) {
-            SpawnEggHarvest.dropSpawnEggHarvestLoot(event, player);
+        if (attacker != null) {
+            SpawnEggHarvest.dropSpawnEggHarvestLoot(event, attacker);
         }
     }
 
@@ -366,15 +347,17 @@ public final class ResourceAmplificationHandler {
         if (event.isCanceled()) {
             return;
         }
-        Player player = event.getAttackingPlayer();
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        LivingEntity target = event.getEntity();
+        if (target == null) {
             return;
         }
-        Entity directEntity = null;
-        if (event.getEntity() != null && event.getEntity().getLastDamageSource() != null) {
-            directEntity = event.getEntity().getLastDamageSource().getDirectEntity();
+        DamageSource lastSource = target.getLastDamageSource();
+        Entity directEntity = lastSource != null ? lastSource.getDirectEntity() : null;
+        Attacker attacker = CombatUtil.resolveKillAttacker(lastSource, target);
+        if (attacker == null || !AmpRules.shouldAmplifyXp(attacker.kind())) {
+            return;
         }
-        int resourceLevel = resolveResourceLevel(player, directEntity);
+        int resourceLevel = resolveResourceLevel(attacker, directEntity);
         if (resourceLevel <= 0) {
             return;
         }
@@ -391,7 +374,10 @@ public final class ResourceAmplificationHandler {
             int granted = (int) Math.min(newXp, (long) RESOURCE_XP_CAP);
             event.setDroppedExperience(0);
             if (granted > 0) {
-                player.giveExperiencePoints(granted);
+                Player realPlayer = attacker.asPlayer();
+                if (realPlayer != null) {
+                    realPlayer.giveExperiencePoints(granted);
+                }
             }
         } finally {
             CombatReentry.exitResourceXp(event.getEntity());
@@ -405,14 +391,14 @@ public final class ResourceAmplificationHandler {
             return;
         }
         Player player = event.getPlayer();
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player) || player.level().isClientSide) {
+        if (player == null || player.level().isClientSide) {
             return;
         }
         if (player.getAbilities().instabuild) {
             return;
         }
         ItemStack mainHand = player.getMainHandItem();
-        int resourceLevel = getEffectiveResourceAmplificationLevel(player, mainHand);
+        int resourceLevel = getEffectiveResourceAmplificationLevel(mainHand, player);
         if (resourceLevel <= 0) {
             return;
         }
@@ -440,7 +426,10 @@ public final class ResourceAmplificationHandler {
         if (event.isCanceled()) {
             return;
         }
-        if (!(event.getBreaker() instanceof Player player) || CombatUtil.isNotValidAttackerPlayer(player)) {
+        if (!(event.getBreaker() instanceof Player player)) {
+            return;
+        }
+        if (!AmpRules.shouldAmplifyXp(CombatUtil.classifyAttacker(player))) {
             return;
         }
         if (player.getAbilities().instabuild) {
@@ -450,7 +439,7 @@ public final class ResourceAmplificationHandler {
         if (exp <= 0) {
             return;
         }
-        int resourceLevel = getEffectiveResourceAmplificationLevel(player, player.getMainHandItem());
+        int resourceLevel = getEffectiveResourceAmplificationLevel(player.getMainHandItem(), player);
         if (resourceLevel <= 0) {
             return;
         }

@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.integration;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.event.ResourceAmplificationHandler;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -98,6 +99,10 @@ public class TaczIntegration {
         }
         ItemStack gunStack = findGunStackFromShooter(shooter);
         if (gunStack.isEmpty()) {
+            return true;
+        }
+        // 开关在枪物品组件上：关着就不写等级，子弹落地后的倍率自然为 0
+        if (!ResourceAmplificationHandler.isResourceAmpEnabled(gunStack)) {
             return true;
         }
         int resourceLevel = EnchantUtil.getLevel(ModEnchantments.RESOURCE_AMPLIFICATION, gunStack, shooter);

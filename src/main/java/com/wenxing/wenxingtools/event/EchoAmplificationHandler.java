@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.util.Attacker;
 import com.wenxing.wenxingtools.util.CombatReentry;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,10 +17,11 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 
 /**
- * 回响增幅：命中后对目标追加 10×等级 次虚空伤害（单次 = 玩家 ATTACK_DAMAGE）。
+ * 回响增幅：命中后对目标追加 10×等级 次虚空伤害（单次 = 攻击者 ATTACK_DAMAGE）。
  * <p>
  * 结算方案 A：循环 {@code hurt(out_of_world, attackPower)}，每击重置无敌帧；
- * 伤害源经 {@link CombatUtil#createVoidKillSource} 挂玩家实体，击杀归属/掉落经验归玩家。
+ * 玩家攻击者经 {@link CombatUtil#createVoidKillSource} 挂实体，击杀归属/掉落经验归玩家；
+ * 生物攻击者退化为无归属虚空伤害（它没有玩家归属语义）。
  * 回响链 ThreadLocal 防重入；链内不触发攻击增幅/净化/回响。结束后再净化一次。
  */
 @EventBusSubscriber(modid = WenXingTools.MODID)
@@ -49,11 +51,8 @@ public final class EchoAmplificationHandler {
             return;
         }
 
-        Player player = CombatUtil.resolvePlayerAttacker(event.getSource());
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
-            return;
-        }
-        if (!(player instanceof ServerPlayer serverPlayer)) {
+        Attacker attacker = CombatUtil.resolveAttacker(event.getSource());
+        if (attacker == null) {
             return;
         }
 
@@ -65,12 +64,12 @@ public final class EchoAmplificationHandler {
             return;
         }
 
-        int level = resolveEchoAmplificationLevel(player);
+        int level = resolveEchoAmplificationLevel(attacker);
         if (level <= 0) {
             return;
         }
 
-        float attackPower = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE);
+        float attackPower = (float) attacker.entity().getAttributeValue(Attributes.ATTACK_DAMAGE);
         if (!(attackPower > 0.0f) || Float.isNaN(attackPower)) {
             return;
         }
@@ -79,19 +78,22 @@ public final class EchoAmplificationHandler {
             return;
         }
 
-        applyEchoVoidDamage(serverPlayer, target, level, attackPower);
+        applyEchoVoidDamage(attacker, target, level, attackPower);
     }
 
-    static int resolveEchoAmplificationLevel(Player player) {
-        return EnchantUtil.resolveEnchantLevel(ModEnchantments.ECHO_AMPLIFICATION, player);
+    static int resolveEchoAmplificationLevel(Attacker attacker) {
+        if (attacker == null) {
+            return 0;
+        }
+        return EnchantUtil.getMaxLevelAllSlots(ModEnchantments.ECHO_AMPLIFICATION, attacker.entity());
     }
 
     /**
      * 方案 A：循环虚空 hurt × (10×level)，每击清无敌帧；目标死亡立即停止。
-     * 伤害源挂玩家（out_of_world + source entity = player），击杀归属正确。
+     * 玩家攻击者的伤害源挂实体（out_of_world + source entity = player），击杀归属正确。
      * 结束后强制再净化，清掉连击/词条回写的效果。
      */
-    private static void applyEchoVoidDamage(ServerPlayer player, LivingEntity target, int level, float attackPower) {
+    private static void applyEchoVoidDamage(Attacker attacker, LivingEntity target, int level, float attackPower) {
         if (CombatReentry.isEchoChainRunning()) {
             return;
         }
@@ -100,9 +102,13 @@ public final class EchoAmplificationHandler {
             return;
         }
 
-        // 归属玩家：类型 minecraft:out_of_world，实体 = 攻击者（掉落/经验/击杀记在玩家头上）
-        DamageSource resolved = CombatUtil.createVoidKillSource(player);
-        final DamageSource voidSource = resolved != null ? resolved : player.damageSources().playerAttack(player);
+        LivingEntity attackerEntity = attacker.entity();
+        DamageSource resolved = attackerEntity instanceof ServerPlayer serverPlayer
+                ? CombatUtil.createVoidKillSource(serverPlayer)
+                : CombatUtil.createVanillaOutOfWorldSource(attackerEntity.level());
+        final DamageSource voidSource = resolved != null
+                ? resolved
+                : attackerEntity.damageSources().mobAttack(attackerEntity);
 
         CombatReentry.runEchoChain(() -> {
             for (int i = 0; i < hits; i++) {
@@ -120,7 +126,7 @@ public final class EchoAmplificationHandler {
 
         // 回响/词条处理可能把效果写回来：结束后按需再清，并刷新净化持续窗/核清
         if (!target.isRemoved() && target.isAlive()) {
-            int purgeLevel = EffectPurgeHandler.resolveEffectPurgeLevel(player);
+            int purgeLevel = EffectPurgeHandler.resolveEffectPurgeLevel(attacker);
             if (purgeLevel > 0) {
                 EffectPurgeSupport.applyOnHit(target, target.level().getGameTime(), purgeLevel);
             } else if (EffectPurgeSupport.isSuppressed(target)) {

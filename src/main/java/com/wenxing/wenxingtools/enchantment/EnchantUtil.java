@@ -1,5 +1,6 @@
 package com.wenxing.wenxingtools.enchantment;
 
+import com.wenxing.wenxingtools.util.AmpRules;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -48,18 +49,32 @@ public final class EnchantUtil {
     }
 
     /**
-     * 附魔等级：主手优先，为 0 时回退全槽（覆盖就地改 NBT / 枪械改枪未触发换装）。
-     * 对齐 Forge 1.20.1 AmpSupport.resolveEnchantLevel。
+     * 装备槽（主手 / 副手 / 护甲）附魔等级取最大。
+     * <p>
+     * 与 {@link #getTotalLevelAllSlots} 的区别是「取最大」而非「求和」：跨槽累加会让双持同名附魔白拿双倍效果，
+     * 也与 1.20.1 姊妹端口径一致。对生物而言这些槽位就是它的装备栏，女仆的武器在主手槽即可读到。
+     * <p>
+     * holder 只解析一次，避免每个槽位各查一次注册表。
      */
-    public static int resolveEnchantLevel(ResourceKey<Enchantment> key, Player player) {
-        if (player == null) {
+    public static int getMaxLevelAllSlots(ResourceKey<Enchantment> key, LivingEntity entity) {
+        if (entity == null) {
             return 0;
         }
-        int level = getLevel(key, player.getMainHandItem(), player);
-        if (level > 0) {
-            return level;
+        Optional<Holder.Reference<Enchantment>> holderOpt = resolveHolder(key, entity);
+        if (holderOpt.isEmpty()) {
+            return 0;
         }
-        return getTotalLevelAllSlots(key, player);
+        Holder<Enchantment> holder = holderOpt.get();
+        EquipmentSlot[] slots = EquipmentSlot.values();
+        int[] levels = new int[slots.length];
+        for (int i = 0; i < slots.length; i++) {
+            ItemStack stack = entity.getItemBySlot(slots[i]);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            levels[i] = EnchantmentHelper.getItemEnchantmentLevel(holder, stack);
+        }
+        return AmpRules.max(levels);
     }
 
     public static int applyEnchantmentOnStack(

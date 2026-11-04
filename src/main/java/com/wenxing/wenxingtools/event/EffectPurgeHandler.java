@@ -3,6 +3,7 @@ package com.wenxing.wenxingtools.event;
 import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
+import com.wenxing.wenxingtools.util.Attacker;
 import com.wenxing.wenxingtools.util.CombatReentry;
 import com.wenxing.wenxingtools.util.CombatUtil;
 import net.minecraft.server.level.ServerPlayer;
@@ -58,8 +59,8 @@ public final class EffectPurgeHandler {
             return;
         }
 
-        Player player = CombatUtil.resolvePlayerAttacker(event.getSource());
-        if (player == null || CombatUtil.isNotValidAttackerPlayer(player)) {
+        Attacker attacker = CombatUtil.resolveAttacker(event.getSource());
+        if (attacker == null) {
             return;
         }
 
@@ -71,7 +72,7 @@ public final class EffectPurgeHandler {
         if (target instanceof Player) {
             return;
         }
-        int level = resolveEffectPurgeLevel(player);
+        int level = resolveEffectPurgeLevel(attacker);
         if (level <= 0) {
             return;
         }
@@ -79,9 +80,12 @@ public final class EffectPurgeHandler {
         EffectPurgeSupport.applyOnHit(target, target.level().getGameTime(), level);
     }
 
-    /** 装备上净化增幅总等级（主手优先，回退全槽）。 */
-    public static int resolveEffectPurgeLevel(Player player) {
-        return EnchantUtil.resolveEnchantLevel(ModEnchantments.EFFECT_PURGE, player);
+    /** 装备上净化增幅等级：装备槽取最大（副手与护甲槽都算）。 */
+    public static int resolveEffectPurgeLevel(Attacker attacker) {
+        if (attacker == null) {
+            return 0;
+        }
+        return EnchantUtil.getMaxLevelAllSlots(ModEnchantments.EFFECT_PURGE, attacker.entity());
     }
 
     /**
