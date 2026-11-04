@@ -20,6 +20,20 @@ public final class AmpRules {
         if (!isPlayer) {
             return AttackerKind.MOB;
         }
+        return classifyPlayer(true, inPlayerList);
+    }
+
+    /**
+     * 玩家子类分类：服务端引用缺失时按真实玩家处理。
+     * <p>
+     * {@code ServerPlayer#getServer()} 为 null 只可能是极短的过渡态（尚未入服登记或实例已摘除）。
+     * 此时若按假玩家处理，真实玩家的经验增幅与吸血会静默失效、且不留任何日志——这比
+     * 「极少数假玩家被多发一次经验」是更差的失败模式，故此处放行。
+     */
+    public static AttackerKind classifyPlayer(boolean serverPresent, boolean inPlayerList) {
+        if (!serverPresent) {
+            return AttackerKind.REAL_PLAYER;
+        }
         return inPlayerList ? AttackerKind.REAL_PLAYER : AttackerKind.FAKE_PLAYER;
     }
 

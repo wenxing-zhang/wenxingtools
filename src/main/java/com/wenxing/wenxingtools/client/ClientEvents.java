@@ -69,6 +69,15 @@ public final class ClientEvents {
          */
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
+            try {
+                tickResourceAmpParticles();
+            } catch (Throwable t) {
+                // 客户端 tick 抛异常会直接中断客户端主循环（一次注册表/世界的过渡态就够崩）
+                WenXingTools.LOGGER.debug("[resource_amp] client particle tick skipped: {}", t.toString());
+            }
+        }
+
+        private static void tickResourceAmpParticles() {
             LocalPlayer player = Minecraft.getInstance().player;
             if (player == null || player.level() == null || player.isSpectator()) {
                 return;

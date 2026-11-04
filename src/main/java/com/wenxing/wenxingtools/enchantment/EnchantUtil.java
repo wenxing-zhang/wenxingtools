@@ -18,12 +18,24 @@ import java.util.Optional;
 public final class EnchantUtil {
     private EnchantUtil() {}
 
+    /**
+     * 解析附魔 holder。注册表缺失 / 实体未挂世界时返回空——调用方一律按「0 级」降级。
+     * <p>
+     * {@code lookupOrThrow} 在注册表缺失时抛 {@code IllegalStateException}；本方法在客户端 tick
+     * 与第三方事件里都会被调到，不能让它把异常抛到事件总线。降级失败只影响增幅判定，不影响主流程。
+     */
     public static Optional<Holder.Reference<Enchantment>> resolveHolder(
             ResourceKey<Enchantment> key,
             LivingEntity entity) {
-        return entity.registryAccess()
-                .lookupOrThrow(Registries.ENCHANTMENT)
-                .get(key);
+        if (key == null || entity == null) {
+            return Optional.empty();
+        }
+        try {
+            var registry = entity.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+            return registry.get(key);
+        } catch (Throwable t) {
+            return Optional.empty();
+        }
     }
 
     public static int getLevel(ResourceKey<Enchantment> key, ItemStack stack, LivingEntity context) {

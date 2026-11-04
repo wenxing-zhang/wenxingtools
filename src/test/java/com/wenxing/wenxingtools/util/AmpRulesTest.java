@@ -38,6 +38,15 @@ class AmpRulesTest {
     }
 
     @Test
+    void missingServerFallsBackToRealPlayer() {
+        // 服务端引用缺失只可能是极短过渡态：宁可让极少数假玩家多拿一次经验，
+        // 也不能让真实玩家的经验增幅与吸血静默失效
+        assertEquals(AttackerKind.REAL_PLAYER, AmpRules.classifyPlayer(false, false));
+        assertEquals(AttackerKind.REAL_PLAYER, AmpRules.classifyPlayer(true, true));
+        assertEquals(AttackerKind.FAKE_PLAYER, AmpRules.classifyPlayer(true, false));
+    }
+
+    @Test
     void healOnlyForRealPlayers() {
         assertTrue(AmpRules.shouldHeal(AttackerKind.REAL_PLAYER));
         assertFalse(AmpRules.shouldHeal(AttackerKind.FAKE_PLAYER));

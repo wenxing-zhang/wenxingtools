@@ -112,7 +112,8 @@ public final class CombatUtil {
                 && projectile.getOwner() instanceof LivingEntity owner) {
             return owner;
         }
-        return null;
+        // 枪械子弹不一定是 Projectile（该实体父类在版本间变过），故再走一条软依赖反射取持有者
+        return com.wenxing.wenxingtools.integration.TaczIntegration.getBulletOwner(source.getDirectEntity());
     }
 
     /**
@@ -121,15 +122,23 @@ public final class CombatUtil {
      * 不用 {@code connection == null}——NeoForge 的假玩家会给自己塞一个空连接，据此判定会把假玩家漏成真实玩家；
      * 也不用 {@code instanceof FakePlayer}——模组自建的 ServerPlayer 子类同样应算假玩家。
      */
+    /**
+     * 真实玩家判据：能在这个 ServerPlayer 自己的服务端玩家列表里查到它。
+     * <p>
+     * 不用 {@code connection == null}——NeoForge 的假玩家会给自己塞一个空连接，据此判定会把假玩家漏成真实玩家；
+     * 也不用 {@code instanceof FakePlayer}——模组自建的 ServerPlayer 子类同样应算假玩家。
+     * 服务端引用缺失的过渡态按真实玩家放行（判据在 {@link AmpRules#classifyPlayer}）。
+     */
     public static AttackerKind classifyAttacker(LivingEntity entity) {
         if (!(entity instanceof Player player)) {
             return AttackerKind.MOB;
         }
-        boolean inPlayerList = false;
-        if (player instanceof ServerPlayer serverPlayer && serverPlayer.getServer() != null) {
-            inPlayerList = serverPlayer.getServer().getPlayerList().getPlayer(player.getUUID()) == player;
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return AttackerKind.FAKE_PLAYER;
         }
-        return AmpRules.classify(true, inPlayerList);
+        MinecraftServer server = serverPlayer.getServer();
+        boolean inPlayerList = server != null && server.getPlayerList().getPlayer(player.getUUID()) == player;
+        return AmpRules.classifyPlayer(server != null, inPlayerList);
     }
 
     public static float getMaxHealth(LivingEntity entity) {

@@ -26,6 +26,8 @@ public class TaczIntegration {
     private static volatile Class<?> bulletClass;
     private static volatile Class<?> iGunInterface;
     private static volatile Boolean taczPresent;
+    private static volatile java.lang.invoke.MethodHandle BULLET_OWNER_HANDLE;
+    private static volatile boolean BULLET_OWNER_RESOLVED;
     private static final Object TACZ_INIT_LOCK = new Object();
 
     private static boolean isTaczPresent() {
@@ -60,6 +62,52 @@ public class TaczIntegration {
      */
     public static boolean isTaczBulletEntity(@Nullable Entity entity) {
         return isTaczBullet(entity);
+    }
+
+    /**
+     * 取枪械子弹的持有者：子弹是 {@code Projectile} 时直接取 owner，否则反射调用 {@code getOwner()}。
+     * <p>
+     * 不能假定 TACZ 子弹一定继承 {@code Projectile}——该实体的父类在版本间变过，一旦不继承，
+     * 只认 {@code instanceof Projectile} 的归属解析会让枪械击杀的掉落增幅 / 掠蛋整段失效。
+     * 反射失败静默返回 null（软依赖缺失或签名变化时的降级路径）。
+     */
+    public static LivingEntity getBulletOwner(@Nullable Entity entity) {
+        if (!isTaczBullet(entity)) {
+            return null;
+        }
+        if (entity instanceof Projectile projectile) {
+            return projectile.getOwner() instanceof LivingEntity owner ? owner : null;
+        }
+        java.lang.invoke.MethodHandle handle = bulletOwnerHandle();
+        if (handle == null) {
+            return null;
+        }
+        try {
+            Object owner = handle.invoke(entity);
+            return owner instanceof LivingEntity living ? living : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static java.lang.invoke.MethodHandle bulletOwnerHandle() {
+        if (BULLET_OWNER_RESOLVED) {
+            return BULLET_OWNER_HANDLE;
+        }
+        synchronized (TACZ_INIT_LOCK) {
+            if (BULLET_OWNER_RESOLVED) {
+                return BULLET_OWNER_HANDLE;
+            }
+            try {
+                java.lang.reflect.Method method = bulletClass.getMethod("getOwner");
+                method.setAccessible(true);
+                BULLET_OWNER_HANDLE = java.lang.invoke.MethodHandles.lookup().unreflect(method);
+            } catch (Throwable t) {
+                BULLET_OWNER_HANDLE = null;
+            }
+            BULLET_OWNER_RESOLVED = true;
+            return BULLET_OWNER_HANDLE;
+        }
     }
 
     public static boolean isTaczGunItem(@Nullable ItemStack stack) {
