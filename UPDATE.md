@@ -1998,7 +1998,11 @@
 - **改名会污染下一个物品**：菜单里的 `itemName` 挂在菜单对象上、不随左槽物品变化，原实现每次 `createResult` 都把它当作「玩家本次输入的名字」套用到输出——给 A 改过名后换 B，B 会被莫名改名并白扣 1 点经验（原版不读该字段，改名只发生在 `setItemName` 内部，所以原版没有这条路径）。现由覆盖的 `setItemName` 记录左槽快照，仅当快照与当前左件仍是同一件物品（`ItemStack.isSameItemSameTags`）时才应用名字；判定抽成 `WenxingAnvilRules.shouldApplyName`，由 T1 覆盖。
 - 顺带核实（不改动）：`AnvilMenu.onTake` 的字节码共 13 个调用，无统计/成就类副作用，覆盖版复刻的「扣点 + 清两槽 + cost 归零 + 播 `ANVIL_USE`」没有漏项；结果槽 `mayPickup` 确实经 `menu.mayPickup(player, hasItem())` 调用，取件门槛生效。
 
-**验证**：`gradlew build` 通过；T1 探针 23 passed / 0 failed；T0 复核 `mergedDamage` 字节码与 `shouldApplyName` / `wenxing$nameOwner` 入产物；T2 runServer 冒烟结果见交付报告；紫色外观 / GUI / 取件扣点属 T3，未实机验证（人工测点见计划）。姊妹端（NeoForge 1.21.1）未同步。
+**修复（同日后补，渲染缺陷）**：
+
+- **放下后下方方块顶面变透明**：方块复刻了原版铁砧的模型几何，却没覆盖 `getShape`——形状落到默认 `Shapes.block()`，`getOcclusionShape` 随之变成整格，渲染器据此把正下方方块的顶面判为完全遮挡而整体剔除，而底座四周 2px 的空隙没有几何填充，交界处看起来就是下方方块顶面消失。碰撞箱同源，此前站得住的地方其实是整格碰撞。现补回原版 `AnvilBlock` 的七个 `VoxelShape` 常量（底座、两级支腿、顶面各两组），按 `FACING` 轴返回 `X_AXIS_AABB` / `Z_AXIS_AABB`，遮挡形状与碰撞箱一并恢复成铁砧轮廓。判据不是贴图：两张紫色贴图与原版同名贴图的逐像素 alpha 一致、零杂色，异常不在纹理。
+
+**验证**：`gradlew build` 通过；T1 探针 23 passed / 0 failed；T0 复核 `mergedDamage` 字节码与 `shouldApplyName` / `wenxing$nameOwner` 入产物，以及 `getShape`（`m_5940_`）按 `FACING` 轴分支返回两个轮廓形状；T2 runServer 冒烟结果见交付报告；紫色外观 / GUI / 取件扣点属 T3，未实机验证（人工测点见计划）。姊妹端（NeoForge 1.21.1）未同步。
 
 ---
 
