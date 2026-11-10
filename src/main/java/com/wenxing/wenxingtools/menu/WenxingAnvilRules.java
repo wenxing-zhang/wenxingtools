@@ -36,19 +36,23 @@ public final class WenxingAnvilRules {
     }
 
     /**
-     * 同物品合并后的剩余损伤：两件损伤相加，再减去上限 12% 的修补偿，钳在 [0, maxDamage]。
-     * damage 越小越完好，故结果是「合并后还剩多少损伤」。
+     * 同物品合并后的剩余损伤：先算耐久和（两件残留耐久相加 + 上限 12% 的修补偿），再换算回损伤。
+     * damage 越小越完好。
+     *
+     * <p>语义对齐原版 {@code AnvilMenu.createResult}：字节码里是
+     * {@code (maxDamage - dA) + (maxDamage - dB) + maxDamage * 12 / 100}，12% 加在**耐久和**上。
+     * 写成「损伤相加 - 12%」方向正好相反：两件半损合并会得到几乎全损。
      */
     public static int mergedDamage(int leftDamage, int rightDamage, int maxDamage) {
         if (maxDamage <= 0) {
             return 0;
         }
-        int bonus = (int) Math.ceil(maxDamage * 0.12);
-        int combined = leftDamage + rightDamage - bonus;
-        if (combined < 0) {
-            combined = 0;
+        int durability = (maxDamage - leftDamage) + (maxDamage - rightDamage) + maxDamage * 12 / 100;
+        int damage = maxDamage - durability;
+        if (damage < 0) {
+            damage = 0;
         }
-        return Math.min(combined, maxDamage);
+        return Math.min(damage, maxDamage - 1);
     }
 
     /**
@@ -69,6 +73,21 @@ public final class WenxingAnvilRules {
             return false;
         }
         return rightEmpty || rightIsBook || rightMergeable;
+    }
+
+    /**
+     * 是否把菜单里的名字应用到输出。
+     *
+     * @param nameBoundToLeft        名字确实属于当前左槽物品（setItemName 时记录的快照仍匹配）
+     * @param nameBlank              名字为空
+     * @param nameEqualsCurrentName  名字与左件当前显示名相同
+     *
+     * <p>第一条是必需的：{@code itemName} 挂在菜单对象上、不随左槽物品变化，
+     * 玩家给 A 改过名再换成 B 时，旧名字不能套到 B 上（否则 B 被莫名改名还白扣代价）。
+     */
+    public static boolean shouldApplyName(boolean nameBoundToLeft, boolean nameBlank,
+                                          boolean nameEqualsCurrentName) {
+        return nameBoundToLeft && !nameBlank && !nameEqualsCurrentName;
     }
 
     /** 界面成本位：有结果显示 1，无结果显示 0。实际扣除的是 {@link #COST_XP_POINTS} 点经验。 */

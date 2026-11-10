@@ -36,6 +36,9 @@ public class WenxingAnvilMenu extends AnvilMenu {
     private static final int INPUT_LEFT = 0;
     private static final int INPUT_RIGHT = 1;
 
+    /** setItemName 时的左槽快照：只有它与当前左槽仍是同一件物品，菜单里的名字才归属这件物品。 */
+    private ItemStack wenxing$nameOwner = ItemStack.EMPTY;
+
     public WenxingAnvilMenu(int containerId, Inventory inventory) {
         super(containerId, inventory);
     }
@@ -102,14 +105,30 @@ public class WenxingAnvilMenu extends AnvilMenu {
         return true;
     }
 
+    @Override
+    public boolean setItemName(String name) {
+        ItemStack snapshot = this.inputSlots.getItem(INPUT_LEFT).copy();
+        boolean applied = super.setItemName(name);
+        if (applied) {
+            this.wenxing$nameOwner = snapshot;
+            // super 内部那次 createResult 发生在快照绑定之前、名字还没应用；这里用绑定好的快照重算一次
+            this.createResult();
+        } else {
+            this.wenxing$nameOwner = ItemStack.EMPTY;
+        }
+        return applied;
+    }
+
     private boolean applyItemName(ItemStack output, ItemStack left) {
         // itemName 由原版 setItemName(String) 写入（Access Transformer 公开的字段）；
-        // 与左件当前显示名相同则视为未改名。
+        // 它挂在菜单对象上、不随左槽物品变化，故先用快照确认「这个名字属于当前左件」——
+        // 否则玩家给 A 改过名后换 B，B 会被改名并白扣一次代价。
         String customName = this.itemName;
-        if (customName == null || customName.isBlank()) {
-            return false;
-        }
-        if (customName.equals(left.getHoverName().getString())) {
+        boolean boundToLeft = !this.wenxing$nameOwner.isEmpty()
+                && ItemStack.isSameItemSameTags(left, this.wenxing$nameOwner);
+        boolean blank = customName == null || customName.isBlank();
+        boolean equalsCurrent = customName != null && customName.equals(left.getHoverName().getString());
+        if (!WenxingAnvilRules.shouldApplyName(boundToLeft, blank, equalsCurrent)) {
             return false;
         }
         output.setHoverName(Component.literal(customName));

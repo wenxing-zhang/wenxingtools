@@ -1992,7 +1992,13 @@
 
 **边界**：不做重力与三态损坏；创造模式不扣经验；附魔等级仍钳到该附魔最大等级（「无视冲突」不等于无限等级）；诅咒照常可写入；右槽放材料不修，需清空右槽。
 
-**验证**：`gradlew build` 通过；T1 探针 18 passed / 0 failed；T0 产物核对与 T2 runServer 冒烟结果见交付报告；紫色外观 / GUI / 取件扣点属 T3，未实机验证（人工测点见计划）。姊妹端（NeoForge 1.21.1）未同步。
+**修复（同日审查，两处实现缺陷）**：
+
+- **同物品合并的耐久口径写反了**：原先按「两件损伤相加 − 12%」计算，与原版「两件残留耐久相加 + 12%」方向相反——两件各损一半的物品合并会得到几乎全损（原版得到完好）。现改为耐久和口径，`mergedDamage` 的字节码与原版同构（`bipush 12 / imul / bipush 100 / idiv`）。
+- **改名会污染下一个物品**：菜单里的 `itemName` 挂在菜单对象上、不随左槽物品变化，原实现每次 `createResult` 都把它当作「玩家本次输入的名字」套用到输出——给 A 改过名后换 B，B 会被莫名改名并白扣 1 点经验（原版不读该字段，改名只发生在 `setItemName` 内部，所以原版没有这条路径）。现由覆盖的 `setItemName` 记录左槽快照，仅当快照与当前左件仍是同一件物品（`ItemStack.isSameItemSameTags`）时才应用名字；判定抽成 `WenxingAnvilRules.shouldApplyName`，由 T1 覆盖。
+- 顺带核实（不改动）：`AnvilMenu.onTake` 的字节码共 13 个调用，无统计/成就类副作用，覆盖版复刻的「扣点 + 清两槽 + cost 归零 + 播 `ANVIL_USE`」没有漏项；结果槽 `mayPickup` 确实经 `menu.mayPickup(player, hasItem())` 调用，取件门槛生效。
+
+**验证**：`gradlew build` 通过；T1 探针 23 passed / 0 failed；T0 复核 `mergedDamage` 字节码与 `shouldApplyName` / `wenxing$nameOwner` 入产物；T2 runServer 冒烟结果见交付报告；紫色外观 / GUI / 取件扣点属 T3，未实机验证（人工测点见计划）。姊妹端（NeoForge 1.21.1）未同步。
 
 ---
 
