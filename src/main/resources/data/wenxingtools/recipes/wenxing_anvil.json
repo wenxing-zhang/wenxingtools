@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "BBB",
+    " B ",
+    "BBB"
+  ],
+  "key": {
+    "B": {
+      "item": "minecraft:iron_block"
+    }
+  },
+  "result": {
+    "item": "wenxingtools:wenxing_anvil",
+    "count": 1
+  }
+}

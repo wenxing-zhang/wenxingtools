@@ -4,12 +4,15 @@ import com.wenxing.wenxingtools.WenXingTools;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.entity.ModEntities;
 import com.wenxing.wenxingtools.event.AmpSupport;
+import com.wenxing.wenxingtools.menu.ModMenuTypes;
 import com.wenxing.wenxingtools.network.PacketHandler;
 import com.wenxing.wenxingtools.network.packet.KeyPacket;
 import com.wenxing.wenxingtools.network.packet.ResourceAmpTogglePacket;
 import com.wenxing.wenxingtools.util.ModEnums.CharacteristicKey;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
@@ -24,6 +27,7 @@ import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public class ClientEvents {
     @Mod.EventBusSubscriber(modid = WenXingTools.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -35,6 +39,12 @@ public class ClientEvents {
             event.register(KeyInit.KEY_FREEDOM);
             event.register(KeyInit.KEY_KILL_AURA);
             event.register(KeyInit.KEY_RESOURCE_AMPLIFICATION);
+        }
+
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {
+            // 复用原版铁砧界面：MenuType 的类型参数是 AnvilMenu，故这里的 ScreenConstructor 类型匹配
+            event.enqueueWork(() -> MenuScreens.register(ModMenuTypes.WENXING_ANVIL.get(), AnvilScreen::new));
         }
 
         @SubscribeEvent

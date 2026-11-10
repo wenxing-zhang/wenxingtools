@@ -10,6 +10,7 @@ import com.wenxing.wenxingtools.event.ModEvents;
 import com.wenxing.wenxingtools.event.WorldTickHandlers;
 import com.wenxing.wenxingtools.item.ModCreativeTab;
 import com.wenxing.wenxingtools.item.ModItems;
+import com.wenxing.wenxingtools.menu.ModMenuTypes;
 import com.wenxing.wenxingtools.network.PacketHandler;
 import com.wenxing.wenxingtools.util.WhitelistManager;
 import net.minecraftforge.common.MinecraftForge;
@@ -33,6 +34,7 @@ public class WenXingTools {
         ModBlockEntities.register(modEventBus);
         ModItems.register(modEventBus);
         ModCreativeTab.register(modEventBus);
+        ModMenuTypes.register(modEventBus);
         ModEntities.register(modEventBus);
 
 

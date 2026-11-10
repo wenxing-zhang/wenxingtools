@@ -37,5 +37,9 @@
   "key.wenxingtools.resource": "Toggle Resource Characteristic (KP2)",
   "key.wenxingtools.freedom": "Toggle Freedom Characteristic",
   "key.wenxingtools.kill_aura": "Toggle Kill Aura Characteristic (KP4)",
-  "key.wenxingtools.resource_amplification": "Toggle Resource Amplification (KP0)"
+  "key.wenxingtools.resource_amplification": "Toggle Resource Amplification (KP0)",
+  "block.wenxingtools.wenxing_anvil": "WenXing Anvil",
+  "item.wenxingtools.wenxing_anvil": "WenXing Anvil",
+  "item.wenxingtools.wenxing_anvil.desc": "Any item can be enchanted and enchantment conflicts are ignored; repairing needs no materials; each operation costs 1 XP point (leave the right slot empty when repairing)",
+  "container.wenxingtools.wenxing_anvil": "WenXing Anvil"
 }

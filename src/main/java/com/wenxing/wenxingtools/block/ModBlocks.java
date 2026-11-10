@@ -51,6 +51,10 @@ public class ModBlocks {
             BLOCKS.register("wenxing_platform",
                     () -> new WenxingPlatformBlock(BlockBehaviour.Properties.copy(Blocks.SMOOTH_STONE)));
 
+    public static final RegistryObject<Block> WENXING_ANVIL =
+            BLOCKS.register("wenxing_anvil",
+                    () -> new WenxingAnvilBlock(BlockBehaviour.Properties.copy(Blocks.ANVIL)));
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

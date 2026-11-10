@@ -37,5 +37,9 @@
   "key.wenxingtools.resource": "切换资源特性 (KP2)",
   "key.wenxingtools.freedom": "切换自由特性",
   "key.wenxingtools.kill_aura": "切换杀戮光环特性 (KP4)",
-  "key.wenxingtools.resource_amplification": "切换资源增幅开关 (KP0)"
+  "key.wenxingtools.resource_amplification": "切换资源增幅开关 (KP0)",
+  "block.wenxingtools.wenxing_anvil": "wenxing铁砧",
+  "item.wenxingtools.wenxing_anvil": "wenxing铁砧",
+  "item.wenxingtools.wenxing_anvil.desc": "任意物品可附魔、无视附魔冲突，修复不需要材料；每次附魔或修复代价 1 点经验（修复时请清空右侧槽位）",
+  "container.wenxingtools.wenxing_anvil": "wenxing铁砧"
 }

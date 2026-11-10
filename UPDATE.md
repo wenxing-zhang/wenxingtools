@@ -1975,6 +1975,27 @@
 
 ---
 
+## 1.4.0 · wenxing铁砧 + 原版铁砧改写下线
+
+**改动**：新增交互方块 `wenxingtools:wenxing_anvil`（wenxing铁砧），并把原先挂在原版铁砧上的两处 mixin 改写整体迁移到该方块的菜单上，原版铁砧恢复原生行为。
+
+- 方块：紫色原版铁砧外观（复用原版 `template_anvil` 几何，贴图由原版 `anvil.png` / `anvil_top.png` 按项目紫色基准 `#7B2FBE` 以亮度缩放着色生成），四朝向随放置面，可被镐挖取、掉落自身；无 BlockEntity、不做重力下落与三态损坏外观。
+- 合成：铁块 7 个（首末行各 3、中间行居中 1）。
+- 界面：`WenxingAnvilMenu extends AnvilMenu`，覆盖 `createResult` / `mayPickup` / `onTake` / `isValidBlock`；客户端复用原版 `AnvilScreen`（菜单类型参数取 `AnvilMenu`，工厂返回子类实例，零复制 GUI）。
+- 规则：任意物品可吃任意附魔书附魔（不做 `canEnchant` / `isCompatibleWith` 判定，等级同级升一级、否则取大、钳到该附魔上限）；修复不需要任何材料（右槽留空即修满，附魔书路径同时修满）；同物品合并沿用原版耐久与附魔口径；无过贵上限（成本恒定）。
+- 代价：**1 点经验**（经验点，不是等级）。`cost` 数据槽只作界面显示位（显示 1），实际扣除由覆盖的 `onTake` 走 `giveExperiencePoints(-1)`；取件门槛改为 `totalExperience >= 1`。
+- 右槽语义：只在「附魔书」与「同物品合并」时被消耗；其余任何物品一律不产出结果——修复不需要材料，若此时仍产出，取件会把材料一并带走。故修复时右槽留空。
+- 下线：删除 `AnvilMenuMixin`（`canEnchant` / `isCompatibleWith` 放宽、过贵常量放宽）、`AnvilMenuFinalizerMixin`（附魔兜底 + `cost.set(1)`）、`ItemCombinerMenuAccessor`；`wenxingtools.mixins.json` 同步移除三项。新增 Access Transformer 两行（`AnvilMenu f_39002_ # cost`、`f_39001_ # itemName`）。
+- 文档：DESIGN §2 表格、§9 表格改写，新增 §6.7。
+
+**破坏性变更**：原版铁砧不再享有「任意附魔 / 无视互斥 / 成本 1 / 无过贵上限」，恢复原版行为（成本 ≥40 清空结果）。需要这些效果请改用 wenxing铁砧。
+
+**边界**：不做重力与三态损坏；创造模式不扣经验；附魔等级仍钳到该附魔最大等级（「无视冲突」不等于无限等级）；诅咒照常可写入；右槽放材料不修，需清空右槽。
+
+**验证**：`gradlew build` 通过；T1 探针 18 passed / 0 failed；T0 产物核对与 T2 runServer 冒烟结果见交付报告；紫色外观 / GUI / 取件扣点属 T3，未实机验证（人工测点见计划）。姊妹端（NeoForge 1.21.1）未同步。
+
+---
+
 ## 1.3.0 · 增幅附魔生效口径统一 + 女仆/假玩家兼容
 
 **改动**：四类附魔的等级读取统一为「装备槽取最大」；攻击者解析从 `Player` 放宽到任意 `LivingEntity`，并按「真实玩家 / 假玩家 / 生物」分流；资源增幅开关从玩家 `persistentData` 迁到物品 NBT，并加了手持粒子。

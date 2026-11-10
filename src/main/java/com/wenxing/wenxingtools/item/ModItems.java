@@ -37,6 +37,10 @@ public class ModItems {
             ITEMS.register("generic_spawn_egg",
                     () -> new GenericSpawnEggItem(new Item.Properties().stacksTo(64)));
 
+    public static final RegistryObject<Item> WENXING_ANVIL =
+            ITEMS.register("wenxing_anvil",
+                    () -> new WenxingAnvilItem(ModBlocks.WENXING_ANVIL.get(), new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }
