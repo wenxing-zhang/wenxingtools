@@ -15,6 +15,9 @@ public final class WenxingAnvilRules {
     /** 改名长度上限，跟随原版 {@code AnvilMenu.MAX_NAME_LENGTH}（该常量是 public，改动时以原版为准）。 */
     public static final int MAX_NAME_LENGTH = 50;
 
+    /** 附魔等级上限：{@code ItemEnchantments} 组件只接受 [0,255]，超出会被组件层静默截断。 */
+    public static final int MAX_ENCHANTMENT_LEVEL = 255;
+
     private WenxingAnvilRules() {
     }
 
@@ -22,18 +25,27 @@ public final class WenxingAnvilRules {
      * 合并一条附魔：与源等级相同则升一级，否则取较大者，最后钳到该附魔的等级上限。
      * 不判断互斥、不判断物品能否附魔——「任意物品、无视冲突」由调用方跳过原版判定实现。
      *
-     * <p>结果为 {@code max(currentLevel, 钳后等级)}：常规路径（现有等级不超上限）与此等价，
-     * 差异只在「物品自带等级已高于该附魔 maxLevel」时——那时保留原等级而不是降级。
-     * 本模组的内置附魔物品（资源增幅镐等）属于这种情况，降级会把已有能力削掉。
+     * <p>两条约束在所有分支上一致：
+     * <ul>
+     *   <li><b>不降级</b>——结果为 {@code max(现有等级, 钳后等级)}，物品自带等级高于该附魔上限时保留原等级；
+     *       本模组的内置附魔物品属于这种情况，降级会把已有能力削掉。源等级缺失（≤0）时同样不得降级。</li>
+     *   <li><b>不越组件上界</b>——{@code ItemEnchantments} 只接受 [0,255]，超出会被组件层静默截断；
+     *       规则层先钳住，免得「算出来 256、写进去 255」这种账实不符。</li>
+     * </ul>
+     * 升一级在心算上会溢出 int 的输入（等级已被组件层保证 ≤255，这里只是防御）用饱和处理，不靠溢出后再兜。
      */
     public static int mergeLevel(int currentLevel, int sourceLevel, int maxLevel) {
-        int cap = Math.max(1, maxLevel);
+        int cap = Math.min(MAX_ENCHANTMENT_LEVEL, Math.max(1, maxLevel));
+        int preserved = Math.min(MAX_ENCHANTMENT_LEVEL, Math.max(0, currentLevel));
+        int merged;
         if (sourceLevel <= 0) {
-            return clampLevel(currentLevel, cap);
+            merged = currentLevel;
+        } else if (currentLevel == sourceLevel) {
+            merged = currentLevel >= MAX_ENCHANTMENT_LEVEL ? currentLevel : currentLevel + 1;
+        } else {
+            merged = Math.max(currentLevel, sourceLevel);
         }
-        int merged = (currentLevel == sourceLevel) ? currentLevel + 1 : Math.max(currentLevel, sourceLevel);
-        // 保留项不可先钳：currentLevel 高于上限时钳成 cap 就等于降级了
-        return Math.max(Math.max(0, currentLevel), clampLevel(merged, cap));
+        return Math.max(preserved, clampLevel(merged, cap));
     }
 
     private static int clampLevel(int level, int cap) {
