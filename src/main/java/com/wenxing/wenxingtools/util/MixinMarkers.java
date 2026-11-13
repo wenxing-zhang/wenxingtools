@@ -12,12 +12,6 @@ public final class MixinMarkers {
     private MixinMarkers() {
     }
 
-    public interface AnvilAnyEnchantment {
-    }
-
-    public interface AnvilResultFinalize {
-    }
-
     public interface EnchantNameDisplay {
     }
 

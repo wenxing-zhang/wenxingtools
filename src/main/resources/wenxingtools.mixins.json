@@ -4,8 +4,6 @@
   "package": "com.wenxing.wenxingtools.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "AnvilMenuMixin",
-    "AnvilMenuFinalizerMixin",
     "EnchantmentMixin",
     "EnchantmentWeaponCoverageMixin",
     "LivingEntityPurgeDamageMixin",

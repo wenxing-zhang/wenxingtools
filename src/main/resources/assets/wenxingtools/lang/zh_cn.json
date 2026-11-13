@@ -83,5 +83,9 @@
   "msg.wenxingtools.cenchant.no_item": "主手无可附魔物品。",
   "msg.wenxingtools.cenchant.all_non_living": "目标均为非生物实体。",
   "death.attack.wenxingtools.infinity_kill": "%1$s 被抹除了",
-  "death.attack.wenxingtools.infinity_kill.player": "%1$s 被 %2$s 抹除了"
+  "death.attack.wenxingtools.infinity_kill.player": "%1$s 被 %2$s 抹除了",
+  "block.wenxingtools.wenxing_anvil": "wenxing铁砧",
+  "item.wenxingtools.wenxing_anvil": "wenxing铁砧",
+  "item.wenxingtools.wenxing_anvil.desc": "任意物品可附魔、无视附魔冲突，修复不需要材料；每次附魔或修复代价 1 点经验（修复时请清空右侧槽位）",
+  "container.wenxingtools.wenxing_anvil": "wenxing铁砧"
 }

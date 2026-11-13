@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/template_anvil",
+  "textures": {
+    "particle": "wenxingtools:block/wenxing_anvil",
+    "body": "wenxingtools:block/wenxing_anvil",
+    "top": "wenxingtools:block/wenxing_anvil_top"
+  }
+}

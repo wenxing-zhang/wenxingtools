@@ -83,5 +83,9 @@
   "msg.wenxingtools.cenchant.no_item": "No enchantable main-hand item.",
   "msg.wenxingtools.cenchant.all_non_living": "All targets are non-living entities.",
   "death.attack.wenxingtools.infinity_kill": "%1$s was erased",
-  "death.attack.wenxingtools.infinity_kill.player": "%1$s was erased by %2$s"
+  "death.attack.wenxingtools.infinity_kill.player": "%1$s was erased by %2$s",
+  "block.wenxingtools.wenxing_anvil": "WenXing Anvil",
+  "item.wenxingtools.wenxing_anvil": "WenXing Anvil",
+  "item.wenxingtools.wenxing_anvil.desc": "Any item can be enchanted and enchantment conflicts are ignored; repairing needs no materials; each operation costs 1 XP point (leave the right slot empty when repairing)",
+  "container.wenxingtools.wenxing_anvil": "WenXing Anvil"
 }

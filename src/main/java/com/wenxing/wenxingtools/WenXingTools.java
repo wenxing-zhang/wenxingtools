@@ -7,6 +7,7 @@ import com.wenxing.wenxingtools.integration.MalumSpiritAmplification;
 import com.wenxing.wenxingtools.item.ModBlocks;
 import com.wenxing.wenxingtools.item.ModCreativeTabs;
 import com.wenxing.wenxingtools.item.ModItems;
+import com.wenxing.wenxingtools.menu.ModMenuTypes;
 import com.wenxing.wenxingtools.util.BedrockLootTable;
 import com.wenxing.wenxingtools.util.MixinSelfCheck;
 import com.wenxing.wenxingtools.util.WhitelistManager;
@@ -26,6 +27,7 @@ public class WenXingTools {
         ModBlocks.register(modEventBus);
         ModItems.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
+        ModMenuTypes.register(modEventBus);
         ModEntities.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);

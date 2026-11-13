@@ -5,11 +5,13 @@ import com.wenxing.wenxingtools.enchantment.EnchantUtil;
 import com.wenxing.wenxingtools.enchantment.ModEnchantments;
 import com.wenxing.wenxingtools.entity.ModEntities;
 import com.wenxing.wenxingtools.event.ResourceAmplificationHandler;
+import com.wenxing.wenxingtools.menu.ModMenuTypes;
 import com.wenxing.wenxingtools.network.ModNetwork;
 import com.wenxing.wenxingtools.network.packet.AuthorityDataSyncPacket;
 import com.wenxing.wenxingtools.util.ModEnums.CharacteristicKey;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.ItemEntityRenderer;
 import net.minecraft.core.particles.ParticleTypes;
@@ -23,6 +25,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 
 public final class ClientEvents {
     private ClientEvents() {}
@@ -42,6 +45,12 @@ public final class ClientEvents {
             event.register(KeyInit.KEY_RESOURCE_AMP);
             event.register(KeyInit.KEY_FREEDOM);
             event.register(KeyInit.KEY_KILL_AURA);
+        }
+
+        @SubscribeEvent
+        public static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
+            // 复用原版铁砧界面：MenuType 的类型参数是 AnvilMenu，ScreenConstructor 泛型因而匹配，零复制 GUI
+            event.register(ModMenuTypes.WENXING_ANVIL.get(), AnvilScreen::new);
         }
 
         @SubscribeEvent

@@ -23,8 +23,6 @@ public final class MixinSelfCheck {
     private static volatile boolean flyMiningIgnoreEnabled = true;
     /** 附魔名灰色/超 10 级数字显示（EnchantmentMixin） */
     private static volatile boolean enchantNameOverrideEnabled = true;
-    /** 铁砧任意附魔书合并 + 固定 1 级经验（AnvilMenu*Mixin） */
-    private static volatile boolean anvilFallbackEnabled = true;
     /** 净化持续窗受击改写虚空（LivingEntityPurgeDamageMixin） */
     private static volatile boolean purgeVoidRewriteEnabled = true;
     /** 净化持续窗拦 addEffect/forceAddEffect（LivingEntityPurgeEffectMixin） */
@@ -46,10 +44,6 @@ public final class MixinSelfCheck {
 
     public static boolean isEnchantNameOverrideEnabled() {
         return enchantNameOverrideEnabled;
-    }
-
-    public static boolean isAnvilFallbackEnabled() {
-        return anvilFallbackEnabled;
     }
 
     public static boolean isPurgeVoidRewriteEnabled() {
@@ -100,23 +94,6 @@ public final class MixinSelfCheck {
             missing++;
         }
 
-        // 铁砧由两个 Mixin 分工，各自独立落地；收尾 Mixin 另用反射取父类容器字段，与注入无关，需单独核对
-        boolean anvilRedirect = checkMarker("铁砧任意附魔/忽略互斥（AnvilMenuMixin）",
-                "net.minecraft.world.inventory.AnvilMenu",
-                MixinMarkers.AnvilAnyEnchantment.class);
-        boolean anvilFinalize = checkMarker("铁砧结果收尾（AnvilMenuFinalizerMixin）",
-                "net.minecraft.world.inventory.AnvilMenu",
-                MixinMarkers.AnvilResultFinalize.class);
-        boolean inputSlots = checkFieldPresent("ItemCombinerMenu.inputSlots",
-                "net.minecraft.world.inventory.ItemCombinerMenu", "inputSlots");
-        boolean resultSlots = checkFieldPresent("ItemCombinerMenu.resultSlots",
-                "net.minecraft.world.inventory.ItemCombinerMenu", "resultSlots");
-        boolean anvilFields = inputSlots && resultSlots;
-        if (!anvilRedirect || !anvilFinalize || !anvilFields) {
-            anvilFallbackEnabled = false;
-            missing++;
-        }
-
         if (!checkMarker("净化受击改写虚空（LivingEntityPurgeDamageMixin）",
                 "net.minecraft.world.entity.LivingEntity",
                 MixinMarkers.PurgeVoidRewrite.class)) {
@@ -160,8 +137,8 @@ public final class MixinSelfCheck {
         } else {
             WenXingTools.LOGGER.warn(
                     "[wenxingtools] mixin self-check: {} mixin group(s) not applied; related feature switches closed "
-                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, anvilFallback={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={}, freedomFlight={})",
-                    missing, fixedMiningEnabled, flyMiningIgnoreEnabled, enchantNameOverrideEnabled, anvilFallbackEnabled,
+                            + "(fixedMining={}, flyMiningIgnore={}, enchantNameOverride={}, purgeVoidRewrite={}, purgeEffectBlock={}, weaponCoverageExpand={}, multiStackMergeGuard={}, freedomFlight={})",
+                    missing, fixedMiningEnabled, flyMiningIgnoreEnabled, enchantNameOverrideEnabled,
                     purgeVoidRewriteEnabled, purgeEffectBlockEnabled, weaponCoverageExpandEnabled, multiStackMergeGuardEnabled,
                     freedomFlightEnabled);
         }
@@ -187,16 +164,5 @@ public final class MixinSelfCheck {
         WenXingTools.LOGGER.warn("[wenxingtools] mixin not applied: {} (marker {} absent on {})",
                 label, marker.getSimpleName(), target.getName());
         return false;
-    }
-
-    /** 供 Mixin 自身反射访问的成员（与注入无关，需单独核对）。 */
-    private static boolean checkFieldPresent(String label, String className, String fieldName) {
-        try {
-            Class.forName(className).getDeclaredField(fieldName);
-            return true;
-        } catch (Throwable t) {
-            WenXingTools.LOGGER.warn("[wenxingtools] reflective target missing: {} ({})", label, t.toString());
-            return false;
-        }
     }
 }
