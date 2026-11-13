@@ -18,14 +18,26 @@ public final class WenxingAnvilRules {
     /**
      * 合并一条附魔：与源等级相同则升一级，否则取较大者，最后钳到该附魔的等级上限。
      * 不判断互斥、不判断物品能否附魔——「任意物品、无视冲突」由调用方跳过原版判定实现。
+     *
+     * <p><b>不降级</b>：结果为 {@code max(现有等级, 钳后等级)}——物品自带等级已高于该附魔上限时保留原等级。
+     * 否则本模组内置附魔物品（资源增幅镐等，等级高于原版上限）只要过一次合并，就会被削回上限；
+     * 源等级缺失（≤0）的分支同样不得降级，两条分支的规则必须一致。
+     *
+     * <p><b>不溢出</b>：等级已到 int 上界时「升一级」饱和处理。若不处理，{@code +1} 溢出为负、
+     * 再被 {@link #clampLevel} 的下界兜成 0 —— 附魔会直接消失（不是保持原级）。
      */
     public static int mergeLevel(int currentLevel, int sourceLevel, int maxLevel) {
         int cap = Math.max(1, maxLevel);
+        int preserved = Math.max(0, currentLevel);
+        int merged;
         if (sourceLevel <= 0) {
-            return clampLevel(currentLevel, cap);
+            merged = currentLevel;
+        } else if (currentLevel == sourceLevel) {
+            merged = currentLevel == Integer.MAX_VALUE ? currentLevel : currentLevel + 1;
+        } else {
+            merged = Math.max(currentLevel, sourceLevel);
         }
-        int merged = (currentLevel == sourceLevel) ? currentLevel + 1 : Math.max(currentLevel, sourceLevel);
-        return clampLevel(merged, cap);
+        return Math.max(preserved, clampLevel(merged, cap));
     }
 
     private static int clampLevel(int level, int cap) {
